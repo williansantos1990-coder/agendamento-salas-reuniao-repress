@@ -263,13 +263,17 @@ export default function Calendar() {
           <PopoverTrigger asChild>
             <div
               className={cn(
-                'absolute inset-x-1 rounded-md px-2 py-1 text-xs overflow-hidden cursor-pointer shadow-sm border border-white/50 hover:shadow-md transition-all',
+                'absolute inset-x-1 rounded-md px-2 py-1 text-xs overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-all',
                 colorClass,
+                isOwner ? 'border-2 border-black/20' : 'border border-white/50',
                 height < 40 ? 'flex items-center gap-1' : 'flex flex-col gap-0.5',
               )}
               style={{ top: `${top}px`, height: `${height}px`, zIndex: 10 }}
             >
-              <div className="font-semibold truncate leading-tight">{meeting.title}</div>
+              <div className="font-semibold truncate leading-tight flex items-center gap-1">
+                <span className="truncate">{meeting.title}</span>
+                {isOwner && <User className="w-3 h-3 flex-shrink-0 opacity-70" />}
+              </div>
               <div className="opacity-80 truncate text-[10px] leading-tight">
                 {format(start, 'HH:mm')} - {format(end, 'HH:mm')}
               </div>
@@ -279,7 +283,14 @@ export default function Calendar() {
             <div className={cn('h-2 w-full', colorClass.split(' ')[0])} />
             <div className="p-4 space-y-3">
               <div>
-                <h4 className="font-semibold text-base">{meeting.title}</h4>
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="font-semibold text-base">{meeting.title}</h4>
+                  {isOwner && (
+                    <span className="text-[10px] font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full whitespace-nowrap">
+                      Sua reserva
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-slate-500 flex items-center mt-1">
                   <Clock className="w-4 h-4 mr-2" />
                   {format(start, "EEEE, d 'de' MMMM", { locale: ptBR })}
