@@ -61,6 +61,7 @@ const meetingSchema = z
     start_time: z.string(),
     end_time: z.string(),
     description: z.string().optional(),
+    participants: z.string().optional(),
   })
   .refine(
     (data) => {
@@ -99,6 +100,7 @@ export default function Calendar() {
       start_time: '09:00',
       end_time: '10:00',
       description: '',
+      participants: '',
     },
   })
 
@@ -148,6 +150,7 @@ export default function Calendar() {
       end_time: `${(hour + 1).toString().padStart(2, '0')}:00`,
       room_id: selectedRooms.length > 0 ? selectedRooms[0] : '',
       description: '',
+      participants: '',
     })
     setSelectedMeeting(null)
     setIsModalOpen(true)
@@ -166,15 +169,31 @@ export default function Calendar() {
       start_time: format(start, 'HH:mm'),
       end_time: format(end, 'HH:mm'),
       description: meeting.description || '',
+      participants: (meeting as any).participants?.join(', ') || '',
     })
     setIsModalOpen(true)
   }
 
-  const handleDeleteMeeting = async (id: string) => {
+  const handleDeleteMeeting = async (meeting: Meeting) => {
     if (!confirm('Tem certeza que deseja cancelar este agendamento?')) return
 
     try {
-      await api.meetings.delete(id)
+      await api.meetings.delete(meeting.id)
+
+      supabase.functions.invoke('send-meeting-notification', {
+        body: {
+          action: 'CANCEL',
+          meeting: {
+            title: meeting.title,
+            start_time: meeting.start_time,
+            end_time: meeting.end_time,
+            room_name: (meeting as any).rooms?.name || '',
+          },
+          requester_email: user?.email,
+          participants: (meeting as any).participants || [],
+        },
+      })
+
       toast({ title: 'Agendamento cancelado' })
       setPopoverOpenId(null)
       fetchMeetings()
@@ -210,13 +229,21 @@ export default function Calendar() {
         return
       }
 
-      const payload = {
+      const participantsList = data.participants
+        ? data.participants
+            .split(',')
+            .map((e) => e.trim())
+            .filter((e) => e)
+        : []
+
+      const payload: any = {
         title: data.title,
         description: data.description || null,
         room_id: data.room_id,
         user_id: user!.id,
         start_time: startDateTime.toISOString(),
         end_time: endDateTime.toISOString(),
+        participants: participantsList,
       }
 
       if (selectedMeeting) {
@@ -225,6 +252,21 @@ export default function Calendar() {
       } else {
         await api.meetings.create(payload)
         toast({ title: 'Sala reservada com sucesso!' })
+
+        const room = rooms.find((r) => r.id === data.room_id)
+        supabase.functions.invoke('send-meeting-notification', {
+          body: {
+            action: 'CREATE',
+            meeting: {
+              title: data.title,
+              start_time: startDateTime.toISOString(),
+              end_time: endDateTime.toISOString(),
+              room_name: room?.name || '',
+            },
+            requester_email: user?.email,
+            participants: participantsList,
+          },
+        })
       }
 
       setIsModalOpen(false)
@@ -314,11 +356,7 @@ export default function Calendar() {
 
               {isOwner && (
                 <div className="flex justify-end gap-2 pt-3 border-t mt-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDeleteMeeting(meeting.id)}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => handleDeleteMeeting(meeting)}>
                     <Trash2 className="w-4 h-4 mr-1" /> Excluir
                   </Button>
                   <Button size="sm" onClick={() => handleEditMeeting(meeting)}>
@@ -460,6 +498,15 @@ export default function Calendar() {
                   <p className="text-sm text-destructive">{errors.end_time.message}</p>
                 )}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="participants">Participantes (E-mails separados por vírgula)</Label>
+              <Input
+                id="participants"
+                placeholder="exemplo@email.com, outro@email.com"
+                {...register('participants')}
+              />
             </div>
 
             <div className="space-y-2">

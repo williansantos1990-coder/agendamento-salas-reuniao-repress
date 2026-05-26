@@ -9,6 +9,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          meeting_id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          meeting_id: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          meeting_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       meetings: {
         Row: {
           created_at: string
@@ -252,6 +279,13 @@ export const Constants = {
 // --- COLUMN TYPES (actual PostgreSQL types) ---
 // Use this to know the real database type when writing migrations.
 // "string" in TypeScript types above may be uuid, text, varchar, timestamptz, etc.
+// Table: audit_logs
+//   id: uuid (not null, default: gen_random_uuid())
+//   user_id: uuid (nullable)
+//   action: text (not null)
+//   meeting_id: uuid (not null)
+//   details: jsonb (nullable)
+//   created_at: timestamp with time zone (not null, default: now())
 // Table: meetings
 //   id: uuid (not null, default: gen_random_uuid())
 //   title: text (not null)
@@ -275,6 +309,9 @@ export const Constants = {
 //   created_at: timestamp with time zone (not null, default: now())
 
 // --- CONSTRAINTS ---
+// Table: audit_logs
+//   PRIMARY KEY audit_logs_pkey: PRIMARY KEY (id)
+//   FOREIGN KEY audit_logs_user_id_fkey: FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL
 // Table: meetings
 //   PRIMARY KEY meetings_pkey: PRIMARY KEY (id)
 //   FOREIGN KEY meetings_profile_id_fkey: FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
@@ -287,6 +324,9 @@ export const Constants = {
 //   PRIMARY KEY rooms_pkey: PRIMARY KEY (id)
 
 // --- ROW LEVEL SECURITY POLICIES ---
+// Table: audit_logs
+//   Policy "Users can view their own audit logs" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: (auth.uid() = user_id)
 // Table: meetings
 //   Policy "authenticated_delete_meetings" (DELETE, PERMISSIVE) roles={authenticated}
 //     USING: (user_id = auth.uid())
@@ -315,6 +355,36 @@ export const Constants = {
 //     WITH CHECK: true
 
 // --- DATABASE FUNCTIONS ---
+// FUNCTION handle_meeting_audit()
+//   CREATE OR REPLACE FUNCTION public.handle_meeting_audit()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//    SECURITY DEFINER
+//   AS $function$
+//   BEGIN
+//       IF (TG_OP = 'INSERT') THEN
+//           INSERT INTO public.audit_logs (user_id, action, meeting_id, details)
+//           VALUES (
+//               NEW.user_id,
+//               'CREATE_MEETING',
+//               NEW.id,
+//               jsonb_build_object('title', NEW.title, 'room_id', NEW.room_id, 'start_time', NEW.start_time, 'end_time', NEW.end_time)
+//           );
+//           RETURN NEW;
+//       ELSIF (TG_OP = 'DELETE') THEN
+//           INSERT INTO public.audit_logs (user_id, action, meeting_id, details)
+//           VALUES (
+//               OLD.user_id,
+//               'CANCEL_MEETING',
+//               OLD.id,
+//               jsonb_build_object('title', OLD.title, 'room_id', OLD.room_id, 'start_time', OLD.start_time, 'end_time', OLD.end_time)
+//           );
+//           RETURN OLD;
+//       END IF;
+//       RETURN NULL;
+//   END;
+//   $function$
+//
 // FUNCTION handle_new_user()
 //   CREATE OR REPLACE FUNCTION public.handle_new_user()
 //    RETURNS trigger
@@ -328,3 +398,8 @@ export const Constants = {
 //   END;
 //   $function$
 //
+
+// --- TRIGGERS ---
+// Table: meetings
+//   on_meeting_delete_audit: CREATE TRIGGER on_meeting_delete_audit AFTER DELETE ON public.meetings FOR EACH ROW EXECUTE FUNCTION handle_meeting_audit()
+//   on_meeting_insert_audit: CREATE TRIGGER on_meeting_insert_audit AFTER INSERT ON public.meetings FOR EACH ROW EXECUTE FUNCTION handle_meeting_audit()
