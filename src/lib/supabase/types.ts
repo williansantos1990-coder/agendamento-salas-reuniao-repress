@@ -42,6 +42,7 @@ export type Database = {
           description: string | null
           end_time: string
           id: string
+          participants: string[] | null
           room_id: string
           start_time: string
           title: string
@@ -52,6 +53,7 @@ export type Database = {
           description?: string | null
           end_time: string
           id?: string
+          participants?: string[] | null
           room_id: string
           start_time: string
           title: string
@@ -62,6 +64,7 @@ export type Database = {
           description?: string | null
           end_time?: string
           id?: string
+          participants?: string[] | null
           room_id?: string
           start_time?: string
           title?: string
@@ -295,6 +298,7 @@ export const Constants = {
 //   room_id: uuid (not null)
 //   user_id: uuid (not null)
 //   created_at: timestamp with time zone (not null, default: now())
+//   participants: _text (nullable)
 // Table: profiles
 //   id: uuid (not null)
 //   full_name: text (nullable)

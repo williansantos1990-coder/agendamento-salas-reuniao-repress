@@ -6,6 +6,8 @@ import * as z from 'zod'
 
 import { api, Room } from '@/services/api'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/hooks/use-auth'
+import { supabase } from '@/lib/supabase/client'
 import {
   Dialog,
   DialogContent,
@@ -37,9 +39,39 @@ type RoomFormData = z.infer<typeof roomSchema>
 
 export default function Rooms() {
   const { toast } = useToast()
+  const { user } = useAuth()
   const [rooms, setRooms] = useState<Room[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (!user) return
+
+      const adminEmails = [
+        'willian.santos1990@gmail.com',
+        'gil.araujo@repress.com.br',
+        'douglas.manoel@repress.com.br',
+      ]
+
+      if (user.email && adminEmails.includes(user.email)) {
+        setIsAdmin(true)
+        return
+      }
+
+      try {
+        const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+
+        if ((data as any)?.role === 'admin') {
+          setIsAdmin(true)
+        }
+      } catch (e) {
+        console.error('Error fetching user role:', e)
+      }
+    }
+    checkAdmin()
+  }, [user])
 
   const {
     register,
@@ -118,12 +150,18 @@ export default function Rooms() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Gerenciamento de Salas</h1>
-          <p className="text-slate-500">Adicione ou edite os espaços disponíveis para reserva.</p>
+          <p className="text-slate-500">
+            {isAdmin
+              ? 'Adicione ou edite os espaços disponíveis para reserva.'
+              : 'Veja os espaços disponíveis para reserva.'}
+          </p>
         </div>
-        <Button onClick={handleAddRoom}>
-          <Plus className="w-4 h-4 mr-2" />
-          Adicionar Sala
-        </Button>
+        {isAdmin && (
+          <Button onClick={handleAddRoom}>
+            <Plus className="w-4 h-4 mr-2" />
+            Adicionar Sala
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -145,24 +183,26 @@ export default function Rooms() {
                 {room.description || 'Sem descrição.'}
               </p>
             </CardContent>
-            <CardFooter className="pt-0 flex justify-end gap-2 border-t mt-auto px-6 py-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleEditRoom(room)}
-                className="text-slate-600"
-              >
-                <Edit2 className="w-4 h-4 mr-1" /> Editar
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleDeleteRoom(room.id)}
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="w-4 h-4 mr-1" /> Remover
-              </Button>
-            </CardFooter>
+            {isAdmin && (
+              <CardFooter className="pt-0 flex justify-end gap-2 border-t mt-auto px-6 py-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleEditRoom(room)}
+                  className="text-slate-600"
+                >
+                  <Edit2 className="w-4 h-4 mr-1" /> Editar
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDeleteRoom(room.id)}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="w-4 h-4 mr-1" /> Remover
+                </Button>
+              </CardFooter>
+            )}
           </Card>
         ))}
 
