@@ -108,6 +108,10 @@ export const api = {
       const { error } = await supabase.from('meetings').delete().eq('id', id)
       if (error) throw error
     },
+    async deleteSeries(recurrenceId: string) {
+      const { error } = await supabase.from('meetings').delete().eq('recurrence_id', recurrenceId)
+      if (error) throw error
+    },
   },
   profiles: {
     async get(id: string) {

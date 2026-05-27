@@ -439,3 +439,7 @@ export const Constants = {
 // Table: meetings
 //   on_meeting_delete_audit: CREATE TRIGGER on_meeting_delete_audit AFTER DELETE ON public.meetings FOR EACH ROW EXECUTE FUNCTION handle_meeting_audit()
 //   on_meeting_insert_audit: CREATE TRIGGER on_meeting_insert_audit AFTER INSERT ON public.meetings FOR EACH ROW EXECUTE FUNCTION handle_meeting_audit()
+
+// --- INDEXES ---
+// Table: meetings
+//   CREATE INDEX idx_meetings_recurrence_id ON public.meetings USING btree (recurrence_id)

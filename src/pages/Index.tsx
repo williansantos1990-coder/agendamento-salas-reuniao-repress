@@ -17,6 +17,7 @@ import { CalendarHeader } from '@/components/calendar/CalendarHeader'
 import { MonthGrid } from '@/components/calendar/MonthGrid'
 import { TimeGrid } from '@/components/calendar/TimeGrid'
 import { MeetingModal } from '@/components/calendar/MeetingModal'
+import { DeleteRecurringModal } from '@/components/calendar/DeleteRecurringModal'
 
 export type CalendarView = 'day' | 'week' | 'month'
 
@@ -36,6 +37,9 @@ export default function Calendar() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null)
   const [modalDefaultDate, setModalDefaultDate] = useState<{ day: Date; hour: number } | null>(null)
+
+  const [meetingToDelete, setMeetingToDelete] = useState<Meeting | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
   useEffect(() => {
     if (selectedDate) setCurrentDate(selectedDate)
@@ -90,6 +94,37 @@ export default function Calendar() {
     setIsModalOpen(true)
   }
 
+  const handleDeleteRequest = (meetingOrId: Meeting | string) => {
+    const meeting =
+      typeof meetingOrId === 'string' ? meetings.find((m) => m.id === meetingOrId) : meetingOrId
+    if (!meeting) return
+
+    if (meeting.recurrence_id) {
+      setMeetingToDelete(meeting)
+      setIsDeleteDialogOpen(true)
+    } else {
+      handleConfirmDelete(meeting, false)
+    }
+  }
+
+  const handleConfirmDelete = async (meeting: Meeting, deleteSeries: boolean) => {
+    try {
+      if (deleteSeries && meeting.recurrence_id) {
+        await api.meetings.deleteSeries(meeting.recurrence_id)
+      } else {
+        await api.meetings.delete(meeting.id)
+      }
+      toast({ title: 'Agendamento excluído' })
+      fetchMeetings()
+      setIsModalOpen(false)
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir agendamento' })
+    } finally {
+      setIsDeleteDialogOpen(false)
+      setMeetingToDelete(null)
+    }
+  }
+
   return (
     <div className="flex flex-col h-full bg-white relative">
       <CalendarHeader
@@ -107,7 +142,7 @@ export default function Calendar() {
             meetings={filteredMeetings}
             onGridClick={handleGridClick}
             onEdit={handleEdit}
-            onDelete={fetchMeetings}
+            onDelete={handleDeleteRequest}
             rooms={rooms}
           />
         ) : (
@@ -118,7 +153,7 @@ export default function Calendar() {
             meetings={filteredMeetings}
             onGridClick={handleGridClick}
             onEdit={handleEdit}
-            onDelete={fetchMeetings}
+            onDelete={handleDeleteRequest}
             rooms={rooms}
           />
         )}
@@ -132,7 +167,20 @@ export default function Calendar() {
         rooms={rooms}
         selectedRooms={selectedRooms}
         onSuccess={fetchMeetings}
+        onDeleteRequest={handleDeleteRequest}
       />
+
+      {meetingToDelete && (
+        <DeleteRecurringModal
+          isOpen={isDeleteDialogOpen}
+          onClose={() => {
+            setIsDeleteDialogOpen(false)
+            setMeetingToDelete(null)
+          }}
+          onConfirm={(deleteSeries) => handleConfirmDelete(meetingToDelete, deleteSeries)}
+          meetingTitle={meetingToDelete.title}
+        />
+      )}
     </div>
   )
 }

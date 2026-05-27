@@ -51,6 +51,7 @@ interface MeetingModalProps {
   rooms: Room[]
   selectedRooms: string[]
   onSuccess: () => void
+  onDeleteRequest?: (meeting: Meeting) => void
 }
 
 export function MeetingModal({
@@ -61,6 +62,7 @@ export function MeetingModal({
   rooms,
   selectedRooms,
   onSuccess,
+  onDeleteRequest,
 }: MeetingModalProps) {
   const { user } = useAuth()
   const { toast } = useToast()
@@ -293,13 +295,24 @@ export function MeetingModal({
               </div>
             )}
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Salvando...' : 'Salvar'}
-              </Button>
+            <DialogFooter className={meeting ? 'sm:justify-between' : ''}>
+              {meeting && onDeleteRequest && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => onDeleteRequest(meeting)}
+                >
+                  Excluir
+                </Button>
+              )}
+              <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-0 sm:space-x-2 mt-4 sm:mt-0">
+                <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Salvando...' : 'Salvar'}
+                </Button>
+              </div>
             </DialogFooter>
           </form>
         </DialogContent>
