@@ -29,7 +29,11 @@ export function DeleteRecurringModal({ isOpen, onClose, onConfirm, meetingTitle 
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent
+        className="sm:max-w-[425px]"
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <DialogHeader>
           <DialogTitle>Confirmar Exclusão</DialogTitle>
         </DialogHeader>

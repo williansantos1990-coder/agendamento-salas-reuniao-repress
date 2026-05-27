@@ -85,6 +85,7 @@ export function MeetingEvent({
         <PopoverTrigger asChild>
           <div
             onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             className={cn(
               'cursor-pointer overflow-hidden transition-all',
               colorClass,
@@ -159,12 +160,20 @@ export function MeetingEvent({
             </div>
             {isOwner && (
               <div className="flex justify-end gap-2 pt-3 border-t mt-3">
-                <Button variant="outline" size="sm" onClick={handleDeleteClick}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDeleteClick()
+                  }}
+                >
                   <Trash2 className="w-4 h-4 mr-1" /> Excluir
                 </Button>
                 <Button
                   size="sm"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation()
                     setIsOpen(false)
                     onEdit(meeting)
                   }}

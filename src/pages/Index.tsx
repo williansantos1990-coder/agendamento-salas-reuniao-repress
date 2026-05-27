@@ -142,7 +142,7 @@ export default function Calendar() {
             meetings={filteredMeetings}
             onGridClick={handleGridClick}
             onEdit={handleEdit}
-            onDelete={handleDeleteRequest}
+            onDelete={fetchMeetings}
             rooms={rooms}
           />
         ) : (
@@ -153,7 +153,7 @@ export default function Calendar() {
             meetings={filteredMeetings}
             onGridClick={handleGridClick}
             onEdit={handleEdit}
-            onDelete={handleDeleteRequest}
+            onDelete={fetchMeetings}
             rooms={rooms}
           />
         )}
