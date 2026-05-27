@@ -16,6 +16,7 @@ export interface Meeting {
   end_time: string
   room_id: string
   user_id: string
+  recurrence_id?: string | null
   rooms?: Room
   profiles?: Profile
 }
@@ -87,6 +88,11 @@ export const api = {
       const { data, error } = await supabase.from('meetings').insert(meeting).select().single()
       if (error) throw error
       return data as Meeting
+    },
+    async createBulk(meetings: Omit<Meeting, 'id' | 'rooms' | 'profiles'>[]) {
+      const { data, error } = await supabase.from('meetings').insert(meetings).select()
+      if (error) throw error
+      return data as Meeting[]
     },
     async update(id: string, meeting: Partial<Meeting>) {
       const { data, error } = await supabase
