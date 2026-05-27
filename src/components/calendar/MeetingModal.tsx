@@ -67,6 +67,7 @@ export function MeetingModal({
     handleSubmit,
     control,
     reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(schema),
@@ -79,6 +80,9 @@ export function MeetingModal({
       description: '',
     },
   })
+
+  const selectedRoomId = watch('room_id')
+  const selectedRoomDetails = rooms?.find((r: any) => r.id === selectedRoomId)
 
   useEffect(() => {
     if (isOpen) {
@@ -187,6 +191,15 @@ export function MeetingModal({
             />
             {errors.room_id && (
               <p className="text-xs text-destructive">{errors.room_id.message as string}</p>
+            )}
+            {selectedRoomId && (
+              <div className="mt-2 text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
+                {selectedRoomDetails?.description ? (
+                  <p className="whitespace-pre-line">{selectedRoomDetails.description}</p>
+                ) : (
+                  <p className="italic">Nenhuma informação adicional para esta sala.</p>
+                )}
+              </div>
             )}
           </div>
           <div className="space-y-2">
