@@ -28,6 +28,7 @@ import { supabase } from '@/lib/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 import { RecurrenceDialog } from './RecurrenceDialog'
 import { RecurrenceConfig, generateOccurrences } from '@/lib/recurrence'
+import { DeleteRecurringModal } from './DeleteRecurringModal'
 
 const schema = z
   .object({
@@ -69,6 +70,7 @@ export function MeetingModal({
 
   const [showRecurrence, setShowRecurrence] = useState(false)
   const [recurrenceConfig, setRecurrenceConfig] = useState<RecurrenceConfig | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   const {
     register,
@@ -128,6 +130,47 @@ export function MeetingModal({
         start_time: config.startTime,
         end_time: config.endTime,
       })
+    }
+  }
+
+  const handleDeleteClick = () => {
+    if (meeting?.recurrence_id) {
+      setShowDeleteModal(true)
+    } else {
+      if (!confirm('Tem certeza que deseja cancelar este agendamento?')) return
+      performDelete(false)
+    }
+  }
+
+  const performDelete = async (deleteSeries: boolean) => {
+    if (!meeting) return
+    try {
+      if (deleteSeries && meeting.recurrence_id) {
+        await api.meetings.deleteSeries(meeting.recurrence_id)
+      } else {
+        await api.meetings.delete(meeting.id)
+      }
+
+      const room = rooms.find((r: any) => r.id === meeting.room_id)
+      supabase.functions.invoke('send-meeting-notification', {
+        body: {
+          action: 'CANCEL',
+          meeting: {
+            title: meeting.title,
+            start_time: meeting.start_time,
+            end_time: meeting.end_time,
+            room_name: room?.name || '',
+          },
+          requester_email: user?.email,
+        },
+      })
+
+      toast({ title: deleteSeries ? 'Série cancelada' : 'Agendamento cancelado' })
+      setIsOpen(false)
+      setShowDeleteModal(false)
+      onSuccess()
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Erro ao cancelar' })
     }
   }
 
@@ -296,12 +339,8 @@ export function MeetingModal({
             )}
 
             <DialogFooter className={meeting ? 'sm:justify-between' : ''}>
-              {meeting && onDeleteRequest && (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={() => onDeleteRequest(meeting)}
-                >
+              {meeting && (
+                <Button type="button" variant="destructive" onClick={handleDeleteClick}>
                   Excluir
                 </Button>
               )}
@@ -327,6 +366,15 @@ export function MeetingModal({
           baseDate={watch('date') || format(new Date(), 'yyyy-MM-dd')}
           baseStart={watch('start_time') || '09:00'}
           baseEnd={watch('end_time') || '10:00'}
+        />
+      )}
+
+      {showDeleteModal && meeting && (
+        <DeleteRecurringModal
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirm={performDelete}
+          meetingTitle={meeting.title}
         />
       )}
     </>
