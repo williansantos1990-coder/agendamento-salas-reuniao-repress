@@ -24,6 +24,8 @@ export interface Profile {
   id: string
   full_name: string | null
   avatar_url: string | null
+  email?: string | null
+  role: string
 }
 
 export const api = {
@@ -116,6 +118,39 @@ export const api = {
         .single()
       if (error) throw error
       return data as Profile
+    },
+  },
+  users: {
+    async getAll() {
+      const { data, error } = await supabase.from('profiles').select('*').order('full_name')
+      if (error) throw error
+      return data as Profile[]
+    },
+    async create(userData: { email: string; full_name: string; role: string; password?: string }) {
+      const { data, error } = await supabase.functions.invoke('manage-users', {
+        body: { action: 'CREATE', ...userData },
+      })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      return data?.user
+    },
+    async update(id: string, updates: Partial<Profile>) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return data as Profile
+    },
+    async delete(id: string) {
+      const { data, error } = await supabase.functions.invoke('manage-users', {
+        body: { action: 'DELETE', userId: id },
+      })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      return data
     },
   },
 }

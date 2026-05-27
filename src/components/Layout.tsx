@@ -4,6 +4,7 @@ import {
   Calendar as CalendarIcon,
   MapPin,
   User,
+  Users,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -14,7 +15,7 @@ import { format, addMonths, subMonths, isSameMonth, isSameDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
 import { useAuth } from '@/hooks/use-auth'
-import { api, Room } from '@/services/api'
+import { api, Room, Profile } from '@/services/api'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -47,12 +48,14 @@ export interface LayoutContextType {
   setSelectedDate: (date: Date) => void
   selectedRooms: string[]
   rooms: Room[]
+  profile: Profile | null
 }
 
 export default function Layout() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [rooms, setRooms] = useState<Room[]>([])
   const [selectedRooms, setSelectedRooms] = useState<string[]>([])
+  const [profile, setProfile] = useState<Profile | null>(null)
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -62,7 +65,10 @@ export default function Layout() {
 
   useEffect(() => {
     fetchRooms()
-  }, [])
+    if (user) {
+      api.profiles.get(user.id).then(setProfile).catch(console.error)
+    }
+  }, [user])
 
   const fetchRooms = async () => {
     try {
@@ -123,10 +129,20 @@ export default function Layout() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              {profile?.role === 'admin' && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location.pathname === '/users'}>
+                    <Link to="/users">
+                      <Users />
+                      <span>Gerenciar Usuários</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
 
             {/* Mini Calendar inside sidebar */}
-            <div className="hidden md:block bg-white rounded-lg border border-slate-200 p-2 shadow-sm">
+            <div className="hidden md:flex flex-col items-center bg-white rounded-xl border border-slate-200 p-2 sm:p-3 shadow-sm mx-auto w-full max-w-[260px]">
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -134,8 +150,15 @@ export default function Layout() {
                 month={calendarMonth}
                 onMonthChange={setCalendarMonth}
                 locale={ptBR}
-                className="mx-auto"
+                className="w-full flex justify-center"
                 classNames={{
+                  months: 'w-full space-y-4 sm:space-x-4 sm:space-y-0',
+                  month: 'w-full space-y-4',
+                  table: 'w-full border-collapse space-y-1',
+                  head_row: 'flex w-full justify-between',
+                  row: 'flex w-full justify-between mt-2',
+                  cell: 'text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20 h-8 w-8 sm:h-9 sm:w-9',
+                  day: 'h-8 w-8 sm:h-9 sm:w-9 p-0 font-normal aria-selected:opacity-100 flex items-center justify-center rounded-md hover:bg-slate-100 transition-colors',
                   day_selected:
                     'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground',
                   day_today: 'bg-accent text-accent-foreground',
@@ -219,7 +242,11 @@ export default function Layout() {
                 </>
               ) : (
                 <h2 className="text-xl font-medium text-slate-800">
-                  {location.pathname === '/rooms' ? 'Gerenciar Salas' : 'Meu Perfil'}
+                  {location.pathname === '/rooms'
+                    ? 'Gerenciar Salas'
+                    : location.pathname === '/users'
+                      ? 'Gerenciar Usuários'
+                      : 'Meu Perfil'}
                 </h2>
               )}
             </div>
@@ -268,7 +295,13 @@ export default function Layout() {
           <main className="flex-1 overflow-auto bg-slate-50">
             <Outlet
               context={
-                { selectedDate, setSelectedDate, selectedRooms, rooms } satisfies LayoutContextType
+                {
+                  selectedDate,
+                  setSelectedDate,
+                  selectedRooms,
+                  rooms,
+                  profile,
+                } satisfies LayoutContextType
               }
             />
           </main>

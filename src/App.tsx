@@ -12,6 +12,7 @@ import ResetPassword from './pages/ResetPassword'
 import Calendar from './pages/Index'
 import Rooms from './pages/Rooms'
 import Profile from './pages/Profile'
+import Users from './pages/Users'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -30,6 +31,7 @@ const App = () => (
               <Route path="/" element={<Calendar />} />
               <Route path="/rooms" element={<Rooms />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/users" element={<Users />} />
             </Route>
           </Route>
 
