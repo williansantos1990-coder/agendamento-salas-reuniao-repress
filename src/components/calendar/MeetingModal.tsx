@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast'
 import { RecurrenceDialog } from './RecurrenceDialog'
 import { RecurrenceConfig, generateOccurrences } from '@/lib/recurrence'
 import { DeleteRecurringModal } from './DeleteRecurringModal'
+import { UpdateRecurringModal } from './UpdateRecurringModal'
 
 const schema = z
   .object({
@@ -71,6 +72,8 @@ export function MeetingModal({
   const [showRecurrence, setShowRecurrence] = useState(false)
   const [recurrenceConfig, setRecurrenceConfig] = useState<RecurrenceConfig | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showUpdateModal, setShowUpdateModal] = useState(false)
+  const [pendingUpdateData, setPendingUpdateData] = useState<any>(null)
 
   const {
     register,
@@ -174,61 +177,133 @@ export function MeetingModal({
     }
   }
 
-  const onSubmit = async (data: any) => {
+  const executeSave = async (data: any, updateSeries: boolean) => {
     try {
-      let occurrences: { startDateTime: Date; endDateTime: Date }[] = []
-
-      if (recurrenceConfig) {
-        const generated = generateOccurrences(recurrenceConfig)
-        occurrences = generated.map((o) => ({ startDateTime: o.start, endDateTime: o.end }))
-        if (occurrences.length === 0) {
-          return toast({
-            variant: 'destructive',
-            title: 'Nenhuma data válida gerada pela recorrência.',
-          })
-        }
-      } else {
-        const [startH, startM] = data.start_time.split(':').map(Number)
-        const [endH, endM] = data.end_time.split(':').map(Number)
-        const currentDate = parse(data.date, 'yyyy-MM-dd', new Date())
-        const startDateTime = setMinutes(setHours(currentDate, startH), startM)
-        const endDateTime = setMinutes(setHours(currentDate, endH), endM)
-        occurrences = [{ startDateTime, endDateTime }]
-      }
-
-      for (const occ of occurrences) {
-        const isAvailable = await api.meetings.checkAvailability(
-          data.room_id,
-          occ.startDateTime,
-          occ.endDateTime,
-          meeting?.id,
-        )
-        if (!isAvailable) {
-          const unavailableDate = format(occ.startDateTime, 'dd/MM/yyyy HH:mm')
-          return toast({
-            variant: 'destructive',
-            title: 'Conflito de horário detectado em uma ou mais datas da recorrência.',
-            description: `A sala já está reservada em ${unavailableDate}`,
-          })
-        }
-      }
-
-      const recurrence_id = recurrenceConfig ? crypto.randomUUID() : null
-
-      const payloads = occurrences.map((occ) => ({
-        title: data.title,
-        description: data.description || null,
-        room_id: data.room_id,
-        user_id: user!.id,
-        start_time: occ.startDateTime.toISOString(),
-        end_time: occ.endDateTime.toISOString(),
-        recurrence_id,
-      }))
+      const [startH, startM] = data.start_time.split(':').map(Number)
+      const [endH, endM] = data.end_time.split(':').map(Number)
 
       if (meeting) {
-        await api.meetings.update(meeting.id, payloads[0])
-        toast({ title: 'Atualizado com sucesso' })
+        if (updateSeries && meeting.recurrence_id) {
+          const series = await api.meetings.getSeries(meeting.recurrence_id)
+          const updatedSeries = series.map((m: any) => {
+            const mStartDate = new Date(m.start_time)
+            const mEndDate = new Date(m.end_time)
+
+            mStartDate.setHours(startH, startM, 0, 0)
+            mEndDate.setHours(endH, endM, 0, 0)
+
+            if (mEndDate < mStartDate) {
+              mEndDate.setDate(mEndDate.getDate() + 1)
+            }
+
+            return {
+              ...m,
+              title: data.title,
+              description: data.description || null,
+              room_id: data.room_id,
+              start_time: mStartDate.toISOString(),
+              end_time: mEndDate.toISOString(),
+            }
+          })
+
+          for (const occ of updatedSeries) {
+            const isAvailable = await api.meetings.checkAvailability(
+              occ.room_id,
+              new Date(occ.start_time),
+              new Date(occ.end_time),
+              occ.id,
+            )
+            if (!isAvailable) {
+              const unavailableDate = format(new Date(occ.start_time), 'dd/MM/yyyy HH:mm')
+              return toast({
+                variant: 'destructive',
+                title: 'Conflito de horário detectado.',
+                description: `A sala já está reservada em ${unavailableDate}`,
+              })
+            }
+          }
+
+          await api.meetings.updateBulk(updatedSeries)
+          toast({ title: 'Série atualizada com sucesso' })
+        } else {
+          const currentDate = parse(data.date, 'yyyy-MM-dd', new Date())
+          const startDateTime = setMinutes(setHours(currentDate, startH), startM)
+          const endDateTime = setMinutes(setHours(currentDate, endH), endM)
+          if (endDateTime < startDateTime) {
+            endDateTime.setDate(endDateTime.getDate() + 1)
+          }
+
+          const isAvailable = await api.meetings.checkAvailability(
+            data.room_id,
+            startDateTime,
+            endDateTime,
+            meeting.id,
+          )
+          if (!isAvailable) {
+            return toast({
+              variant: 'destructive',
+              title: 'Conflito de horário detectado.',
+            })
+          }
+
+          await api.meetings.update(meeting.id, {
+            title: data.title,
+            description: data.description || null,
+            room_id: data.room_id,
+            start_time: startDateTime.toISOString(),
+            end_time: endDateTime.toISOString(),
+          })
+          toast({ title: 'Atualizado com sucesso' })
+        }
       } else {
+        let occurrences: { startDateTime: Date; endDateTime: Date }[] = []
+
+        if (recurrenceConfig) {
+          const generated = generateOccurrences(recurrenceConfig)
+          occurrences = generated.map((o) => ({ startDateTime: o.start, endDateTime: o.end }))
+          if (occurrences.length === 0) {
+            return toast({
+              variant: 'destructive',
+              title: 'Nenhuma data válida gerada pela recorrência.',
+            })
+          }
+        } else {
+          const currentDate = parse(data.date, 'yyyy-MM-dd', new Date())
+          const startDateTime = setMinutes(setHours(currentDate, startH), startM)
+          const endDateTime = setMinutes(setHours(currentDate, endH), endM)
+          if (endDateTime < startDateTime) {
+            endDateTime.setDate(endDateTime.getDate() + 1)
+          }
+          occurrences = [{ startDateTime, endDateTime }]
+        }
+
+        for (const occ of occurrences) {
+          const isAvailable = await api.meetings.checkAvailability(
+            data.room_id,
+            occ.startDateTime,
+            occ.endDateTime,
+          )
+          if (!isAvailable) {
+            const unavailableDate = format(occ.startDateTime, 'dd/MM/yyyy HH:mm')
+            return toast({
+              variant: 'destructive',
+              title: 'Conflito de horário detectado em uma ou mais datas da recorrência.',
+              description: `A sala já está reservada em ${unavailableDate}`,
+            })
+          }
+        }
+
+        const recurrence_id = recurrenceConfig ? crypto.randomUUID() : null
+        const payloads = occurrences.map((occ) => ({
+          title: data.title,
+          description: data.description || null,
+          room_id: data.room_id,
+          user_id: user!.id,
+          start_time: occ.startDateTime.toISOString(),
+          end_time: occ.endDateTime.toISOString(),
+          recurrence_id,
+        }))
+
         await api.meetings.createBulk(payloads)
         toast({ title: recurrenceConfig ? 'Reservas recorrentes criadas' : 'Reserva criada' })
         const room = rooms.find((r: any) => r.id === data.room_id)
@@ -240,11 +315,22 @@ export function MeetingModal({
           },
         })
       }
+
       setIsOpen(false)
+      setShowUpdateModal(false)
       onSuccess()
     } catch (e) {
       toast({ variant: 'destructive', title: 'Erro ao salvar' })
     }
+  }
+
+  const onSubmit = async (data: any) => {
+    if (meeting && meeting.recurrence_id) {
+      setPendingUpdateData(data)
+      setShowUpdateModal(true)
+      return
+    }
+    await executeSave(data, false)
   }
 
   return (
@@ -374,6 +460,15 @@ export function MeetingModal({
           isOpen={showDeleteModal}
           onClose={() => setShowDeleteModal(false)}
           onConfirm={performDelete}
+          meetingTitle={meeting.title}
+        />
+      )}
+
+      {showUpdateModal && meeting && (
+        <UpdateRecurringModal
+          isOpen={showUpdateModal}
+          onClose={() => setShowUpdateModal(false)}
+          onConfirm={(updateSeries) => executeSave(pendingUpdateData, updateSeries)}
           meetingTitle={meeting.title}
         />
       )}

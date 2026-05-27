@@ -89,8 +89,21 @@ export const api = {
       if (error) throw error
       return data as Meeting
     },
+    async getSeries(recurrenceId: string) {
+      const { data, error } = await supabase
+        .from('meetings')
+        .select('*')
+        .eq('recurrence_id', recurrenceId)
+      if (error) throw error
+      return data as Meeting[]
+    },
     async createBulk(meetings: Omit<Meeting, 'id' | 'rooms' | 'profiles'>[]) {
       const { data, error } = await supabase.from('meetings').insert(meetings).select()
+      if (error) throw error
+      return data as Meeting[]
+    },
+    async updateBulk(meetings: Partial<Meeting>[]) {
+      const { data, error } = await supabase.from('meetings').upsert(meetings).select()
       if (error) throw error
       return data as Meeting[]
     },
