@@ -54,7 +54,8 @@ export function MeetingEvent({
           },
           requester_email: user?.email,
         },
-      })      toast({ title: 'Agendamento cancelado' })
+      })
+      toast({ title: 'Agendamento cancelado' })
       setIsOpen(false)
       onDelete()
     } catch (error) {
