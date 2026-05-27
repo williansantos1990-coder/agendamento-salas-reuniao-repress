@@ -11,13 +11,12 @@ import {
   Menu,
   CheckSquare,
 } from 'lucide-react'
-import { format, addMonths, subMonths, isSameMonth, isSameDay } from 'date-fns'
+import { format, addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
 import { useAuth } from '@/hooks/use-auth'
 import { api, Room, Profile } from '@/services/api'
 import { Button } from '@/components/ui/button'
-import { Calendar } from '@/components/ui/calendar'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -60,9 +59,6 @@ export default function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // Custom sidebar calendar state so it doesn't auto-jump
-  const [calendarMonth, setCalendarMonth] = useState(new Date())
-
   useEffect(() => {
     fetchRooms()
     if (user) {
@@ -89,16 +85,6 @@ export default function Layout() {
   const handleLogout = async () => {
     await signOut()
     navigate('/login')
-  }
-
-  const handleDaySelect = (day: Date | undefined) => {
-    if (day) {
-      setSelectedDate(day)
-      // Only navigate to calendar if we are not there
-      if (location.pathname !== '/') {
-        navigate('/')
-      }
-    }
   }
 
   return (
@@ -140,34 +126,6 @@ export default function Layout() {
                 </SidebarMenuItem>
               )}
             </SidebarMenu>
-
-            {/* Mini Calendar inside sidebar */}
-            <div className="hidden md:flex flex-col bg-white rounded-xl border border-slate-200 py-3 shadow-sm mx-0 w-auto">
-              <div className="min-h-0 flex-1 overflow-auto overflow-x-hidden px-1 mx-2 flex justify-center opacity-[1] text-left">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={handleDaySelect}
-                  month={calendarMonth}
-                  onMonthChange={setCalendarMonth}
-                  locale={ptBR}
-                  className="w-full max-w-[240px]"
-                  classNames={{
-                    months: 'w-full space-y-4 sm:space-x-4 sm:space-y-0',
-                    month: 'w-full space-y-4',
-                    table: 'w-full border-collapse space-y-1',
-                    head_row: 'flex w-full justify-between',
-                    row: 'flex w-full justify-between mt-2',
-                    week: 'flex w-full justify-between mt-2',
-                    cell: 'text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20 h-7 w-7 sm:h-8 sm:w-8',
-                    day: 'h-7 w-7 sm:h-8 sm:w-8 p-0 font-normal aria-selected:opacity-100 flex items-center justify-center rounded-md hover:bg-slate-100 transition-colors',
-                    day_selected:
-                      'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground',
-                    day_today: 'bg-accent text-accent-foreground',
-                  }}
-                />
-              </div>
-            </div>
 
             {/* Room Filters */}
             <div className="flex flex-col gap-3">
