@@ -43,6 +43,7 @@ export type Database = {
           end_time: string
           id: string
           participants: string[] | null
+          recurrence_id: string | null
           room_id: string
           start_time: string
           title: string
@@ -54,6 +55,7 @@ export type Database = {
           end_time: string
           id?: string
           participants?: string[] | null
+          recurrence_id?: string | null
           room_id: string
           start_time: string
           title: string
@@ -65,6 +67,7 @@ export type Database = {
           end_time?: string
           id?: string
           participants?: string[] | null
+          recurrence_id?: string | null
           room_id?: string
           start_time?: string
           title?: string
@@ -305,6 +308,7 @@ export const Constants = {
 //   user_id: uuid (not null)
 //   created_at: timestamp with time zone (not null, default: now())
 //   participants: _text (nullable)
+//   recurrence_id: uuid (nullable)
 // Table: profiles
 //   id: uuid (not null)
 //   full_name: text (nullable)
