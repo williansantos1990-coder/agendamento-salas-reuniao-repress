@@ -1,17 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import {
-  Calendar as CalendarIcon,
-  MapPin,
-  User,
-  Users,
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  CheckSquare,
-} from 'lucide-react'
-import { format, addMonths, subMonths } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { Calendar as CalendarIcon, MapPin, User, Users, LogOut, CheckSquare } from 'lucide-react'
 
 import { useAuth } from '@/hooks/use-auth'
 import { api, Room, Profile } from '@/services/api'
@@ -168,39 +157,7 @@ export default function Layout() {
               <SidebarTrigger className="md:hidden" />
 
               {/* Contextual Header based on route */}
-              {location.pathname === '/' ? (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedDate(new Date())}
-                    className="hidden sm:flex"
-                  >
-                    Hoje
-                  </Button>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
-                      className="h-8 w-8"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
-                      className="h-8 w-8"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <h2 className="text-xl font-medium text-slate-800 capitalize min-w-[150px]">
-                    {format(selectedDate, 'MMMM yyyy', { locale: ptBR })}
-                  </h2>
-                </>
-              ) : (
+              {location.pathname !== '/' && (
                 <h2 className="text-xl font-medium text-slate-800">
                   {location.pathname === '/rooms'
                     ? 'Gerenciar Salas'
