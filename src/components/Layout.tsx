@@ -143,7 +143,7 @@ export default function Layout() {
 
             {/* Mini Calendar inside sidebar */}
             <div className="hidden md:flex flex-col bg-white rounded-xl border border-slate-200 py-3 shadow-sm mx-0 w-auto">
-              <div className="min-h-0 flex-1 overflow-auto overflow-x-hidden px-1 mx-2 flex justify-center">
+              <div className="min-h-0 flex-1 overflow-auto overflow-x-hidden px-1 mx-2 flex justify-center opacity-[1] text-left">
                 <Calendar
                   mode="single"
                   selected={selectedDate}
