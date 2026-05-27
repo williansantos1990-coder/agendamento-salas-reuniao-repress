@@ -52,7 +52,7 @@ BEGIN
     END IF;
     RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 DROP TRIGGER IF EXISTS on_meeting_update_audit ON public.meetings;
 CREATE TRIGGER on_meeting_update_audit
