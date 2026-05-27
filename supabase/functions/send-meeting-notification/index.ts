@@ -60,6 +60,8 @@ Deno.serve(async (req: Request) => {
     // Create admin client to query user data
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+    let requester_name = 'O Organizador'
+
     // Retrieve the meeting owner's email from auth.users if we have the user_id
     if (user_id) {
       const { data: userAdmin, error: userError } = await supabase.auth.admin.getUserById(user_id)
@@ -67,6 +69,19 @@ Deno.serve(async (req: Request) => {
         requester_email = userAdmin.user.email
       } else {
         console.warn('Could not fetch user email for user_id:', user_id, userError)
+      }
+
+      // Fetch from profiles to resolve full_name context if needed
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user_id)
+        .single()
+
+      if (profileData?.full_name) {
+        requester_name = profileData.full_name
+      } else {
+        console.warn('Could not fetch user profile for user_id:', user_id, profileError)
       }
     }
 
@@ -85,19 +100,23 @@ Deno.serve(async (req: Request) => {
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || Deno.env.get('resend_api_key')
 
     // Process participants: handle arrays and comma-separated strings to treat them individually
-    const rawParticipants = Array.isArray(participants)
-      ? participants
-      : participants
-        ? [participants]
-        : []
-    const parsedParticipants = rawParticipants
-      .flatMap((p: any) => {
-        if (typeof p === 'string') {
-          return p.split(',').map((e: string) => e.trim())
-        }
-        return []
-      })
-      .filter(Boolean)
+    const parseParticipants = (input: any): string[] => {
+      if (!input) return []
+      if (Array.isArray(input)) {
+        return input.flatMap(parseParticipants)
+      }
+      if (typeof input === 'string') {
+        // Handle postgres array syntax: {"a@b.com","c@d.com"} or {a@b.com,c@d.com}
+        const cleaned = input.replace(/^\{|\}$/g, '')
+        return cleaned
+          .split(',')
+          .map((e) => e.replace(/(^"|"$)/g, '').trim())
+          .filter(Boolean)
+      }
+      return []
+    }
+
+    const parsedParticipants = parseParticipants(participants)
 
     // Combine and deduplicate. We validate email formats so malformed ones won't break the delivery
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -140,6 +159,7 @@ Deno.serve(async (req: Request) => {
         </h2>
         <div style="margin-top: 20px;">
           <p><strong>Título:</strong> ${title}</p>
+          <p><strong>Organizador:</strong> ${requester_name} ${requester_email ? `(${requester_email})` : ''}</p>
           <p><strong>Data:</strong> ${date}</p>
           <p><strong>Horário:</strong> ${start} às ${end}</p>
           <p><strong>Sala:</strong> ${room_name || 'Sala não especificada'}</p>
@@ -169,7 +189,11 @@ Deno.serve(async (req: Request) => {
 
     if (!res.ok) {
       console.error('Resend API Error:', data)
-      throw new Error(data.message || 'Error sending email')
+      // Return 200 so we don't crash or cause infinite webhook retries, but log clearly
+      return new Response(JSON.stringify({ message: 'Failed to send via Resend', error: data }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     return new Response(JSON.stringify(data), {
@@ -178,7 +202,7 @@ Deno.serve(async (req: Request) => {
   } catch (error: any) {
     console.error('Error processing notification:', error)
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }

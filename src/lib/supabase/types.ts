@@ -376,7 +376,13 @@ export const Constants = {
 //               NEW.user_id,
 //               'CREATE_MEETING',
 //               NEW.id,
-//               jsonb_build_object('title', NEW.title, 'room_id', NEW.room_id, 'start_time', NEW.start_time, 'end_time', NEW.end_time)
+//               jsonb_build_object(
+//                 'title', NEW.title,
+//                 'room_id', NEW.room_id,
+//                 'start_time', NEW.start_time,
+//                 'end_time', NEW.end_time,
+//                 'participants', NEW.participants
+//               )
 //           );
 //           RETURN NEW;
 //       ELSIF (TG_OP = 'DELETE') THEN
@@ -385,7 +391,13 @@ export const Constants = {
 //               OLD.user_id,
 //               'CANCEL_MEETING',
 //               OLD.id,
-//               jsonb_build_object('title', OLD.title, 'room_id', OLD.room_id, 'start_time', OLD.start_time, 'end_time', OLD.end_time)
+//               jsonb_build_object(
+//                 'title', OLD.title,
+//                 'room_id', OLD.room_id,
+//                 'start_time', OLD.start_time,
+//                 'end_time', OLD.end_time,
+//                 'participants', OLD.participants
+//               )
 //           );
 //           RETURN OLD;
 //       END IF;
