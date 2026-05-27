@@ -8,7 +8,6 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Menu,
   CheckSquare,
 } from 'lucide-react'
 import { format, addMonths, subMonths } from 'date-fns'
@@ -217,7 +216,10 @@ export default function Layout() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                     <Avatar className="h-9 w-9 border border-slate-200">
-                      <AvatarImage src="" alt="Avatar" />
+                      <AvatarImage
+                        src={user?.user_metadata?.avatar_url}
+                        alt={user?.user_metadata?.full_name || 'Avatar'}
+                      />
                       <AvatarFallback className="bg-primary/10 text-primary">
                         {user?.email?.charAt(0).toUpperCase() ?? 'U'}
                       </AvatarFallback>

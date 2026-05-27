@@ -4,7 +4,8 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, x-supabase-client-platform, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, x-supabase-client-platform, apikey, content-type',
 }
 
 Deno.serve(async (req: Request) => {
@@ -15,7 +16,7 @@ Deno.serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    
+
     // Auth client as service role
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
@@ -24,10 +25,13 @@ Deno.serve(async (req: Request) => {
     if (!authHeader) {
       throw new Error('Missing Authorization header')
     }
-    
+
     const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
-    
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser(token)
+
     if (userError || !user) {
       throw new Error('Unauthorized')
     }
@@ -37,7 +41,7 @@ Deno.serve(async (req: Request) => {
       .select('role')
       .eq('id', user.id)
       .single()
-      
+
     if (profile?.role !== 'admin') {
       throw new Error('Forbidden: Admins only')
     }
@@ -50,7 +54,7 @@ Deno.serve(async (req: Request) => {
         email,
         password: password || 'ChangeMe123!',
         email_confirm: true,
-        user_metadata: { full_name }
+        user_metadata: { full_name },
       })
 
       if (createError) throw createError
@@ -64,21 +68,18 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ user: newUser.user }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
-    } 
-    else if (action === 'DELETE') {
+    } else if (action === 'DELETE') {
       if (!userId) throw new Error('userId is required for deletion')
-      
+
       const { error: deleteError } = await supabase.auth.admin.deleteUser(userId)
       if (deleteError) throw deleteError
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
-    }
-    else {
+    } else {
       throw new Error('Invalid action')
     }
-
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
