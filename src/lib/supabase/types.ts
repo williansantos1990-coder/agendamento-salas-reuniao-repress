@@ -92,18 +92,21 @@ export type Database = {
           avatar_url: string | null
           full_name: string | null
           id: string
+          role: string
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
           full_name?: string | null
           id: string
+          role?: string
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
           full_name?: string | null
           id?: string
+          role?: string
           updated_at?: string
         }
         Relationships: []
@@ -304,6 +307,7 @@ export const Constants = {
 //   full_name: text (nullable)
 //   avatar_url: text (nullable)
 //   updated_at: timestamp with time zone (not null, default: now())
+//   role: text (not null, default: 'user'::text)
 // Table: rooms
 //   id: uuid (not null, default: gen_random_uuid())
 //   name: text (not null)
@@ -350,13 +354,13 @@ export const Constants = {
 // Table: rooms
 //   Policy "Anyone can view rooms" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: true
-//   Policy "Authenticated users can delete rooms" (DELETE, PERMISSIVE) roles={authenticated}
-//     USING: true
-//   Policy "Authenticated users can insert rooms" (INSERT, PERMISSIVE) roles={authenticated}
-//     WITH CHECK: true
-//   Policy "Authenticated users can update rooms" (UPDATE, PERMISSIVE) roles={authenticated}
-//     USING: true
-//     WITH CHECK: true
+//   Policy "Only admins can delete rooms" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))
+//   Policy "Only admins can insert rooms" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))
+//   Policy "Only admins can update rooms" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))
+//     WITH CHECK: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))
 
 // --- DATABASE FUNCTIONS ---
 // FUNCTION handle_meeting_audit()
