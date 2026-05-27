@@ -90,6 +90,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          email: string | null
           full_name: string | null
           id: string
           role: string
@@ -97,6 +98,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          email?: string | null
           full_name?: string | null
           id: string
           role?: string
@@ -104,6 +106,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          email?: string | null
           full_name?: string | null
           id?: string
           role?: string
@@ -308,6 +311,7 @@ export const Constants = {
 //   avatar_url: text (nullable)
 //   updated_at: timestamp with time zone (not null, default: now())
 //   role: text (not null, default: 'user'::text)
+//   email: text (nullable)
 // Table: rooms
 //   id: uuid (not null, default: gen_random_uuid())
 //   name: text (not null)
@@ -346,6 +350,13 @@ export const Constants = {
 //     USING: (user_id = auth.uid())
 //     WITH CHECK: (user_id = auth.uid())
 // Table: profiles
+//   Policy "Admins can delete profiles" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: (EXISTS ( SELECT 1    FROM profiles profiles_1   WHERE ((profiles_1.id = auth.uid()) AND (profiles_1.role = 'admin'::text))))
+//   Policy "Admins can insert profiles" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: (EXISTS ( SELECT 1    FROM profiles profiles_1   WHERE ((profiles_1.id = auth.uid()) AND (profiles_1.role = 'admin'::text))))
+//   Policy "Admins can update profiles" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: ((EXISTS ( SELECT 1    FROM profiles profiles_1   WHERE ((profiles_1.id = auth.uid()) AND (profiles_1.role = 'admin'::text)))) OR (auth.uid() = id))
+//     WITH CHECK: ((EXISTS ( SELECT 1    FROM profiles profiles_1   WHERE ((profiles_1.id = auth.uid()) AND (profiles_1.role = 'admin'::text)))) OR (auth.uid() = id))
 //   Policy "Anyone can view profiles" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: true
 //   Policy "Users can update own profile" (UPDATE, PERMISSIVE) roles={authenticated}
@@ -412,8 +423,9 @@ export const Constants = {
 //    SECURITY DEFINER
 //   AS $function$
 //   BEGIN
-//     INSERT INTO public.profiles (id, full_name)
-//     VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email));
+//     INSERT INTO public.profiles (id, full_name, email)
+//     VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email), NEW.email)
+//     ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email;
 //     RETURN NEW;
 //   END;
 //   $function$
