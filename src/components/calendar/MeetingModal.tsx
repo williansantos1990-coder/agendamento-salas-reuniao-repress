@@ -34,7 +34,6 @@ const schema = z
     start_time: z.string(),
     end_time: z.string(),
     description: z.string().optional(),
-    participants: z.string().optional(),
   })
   .refine((d) => d.start_time < d.end_time, {
     message: 'Término deve ser posterior ao início',
@@ -78,7 +77,6 @@ export function MeetingModal({
       start_time: '09:00',
       end_time: '10:00',
       description: '',
-      participants: '',
     },
   })
 
@@ -92,7 +90,6 @@ export function MeetingModal({
           start_time: format(new Date(meeting.start_time), 'HH:mm'),
           end_time: format(new Date(meeting.end_time), 'HH:mm'),
           description: meeting.description || '',
-          participants: meeting.participants?.join(', ') || '',
         })
       } else if (defaultDate) {
         reset({
@@ -102,7 +99,6 @@ export function MeetingModal({
           start_time: `${defaultDate.hour.toString().padStart(2, '0')}:00`,
           end_time: `${(defaultDate.hour + 1).toString().padStart(2, '0')}:00`,
           description: '',
-          participants: '',
         })
       }
     }
@@ -124,12 +120,6 @@ export function MeetingModal({
       )
       if (!isAvailable) return toast({ variant: 'destructive', title: 'Sala Indisponível' })
 
-      const parts = data.participants
-        ? data.participants
-            .split(',')
-            .map((e: string) => e.trim())
-            .filter(Boolean)
-        : []
       const payload: any = {
         title: data.title,
         description: data.description || null,
@@ -137,7 +127,6 @@ export function MeetingModal({
         user_id: user!.id,
         start_time: startDateTime.toISOString(),
         end_time: endDateTime.toISOString(),
-        participants: parts,
       }
 
       if (meeting) {
@@ -152,7 +141,6 @@ export function MeetingModal({
             action: 'CREATE',
             meeting: { ...payload, room_name: room?.name },
             requester_email: user?.email,
-            participants: parts,
           },
         })
       }
@@ -217,10 +205,6 @@ export function MeetingModal({
                 <p className="text-xs text-destructive">{errors.end_time.message as string}</p>
               )}
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Participantes (Emails)</Label>
-            <Input placeholder="email1@ex.com, email2@ex.com" {...register('participants')} />
           </div>
           <div className="space-y-2">
             <Label>Descrição</Label>

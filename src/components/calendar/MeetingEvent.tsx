@@ -53,10 +53,8 @@ export function MeetingEvent({
             room_name: meeting.rooms?.name || '',
           },
           requester_email: user?.email,
-          participants: meeting.participants || [],
         },
-      })
-      toast({ title: 'Agendamento cancelado' })
+      })      toast({ title: 'Agendamento cancelado' })
       setIsOpen(false)
       onDelete()
     } catch (error) {
