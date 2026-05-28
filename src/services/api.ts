@@ -6,6 +6,7 @@ export interface Room {
   capacity: number
   location: string | null
   description: string | null
+  image_url: string | null
 }
 
 export interface Meeting {

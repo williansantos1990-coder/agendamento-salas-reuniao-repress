@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MapPin, Users, Edit2, Trash2, Plus } from 'lucide-react'
+import { MapPin, Users, Edit2, Trash2, Plus, Image as ImageIcon, X } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -28,6 +28,8 @@ import {
 } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 
+import sala2Img from '@/assets/sala2-358f3.jpg'
+
 const roomSchema = z.object({
   name: z.string().min(1, 'O nome é obrigatório'),
   capacity: z.coerce.number().min(1, 'A capacidade deve ser pelo menos 1'),
@@ -37,6 +39,11 @@ const roomSchema = z.object({
 
 type RoomFormData = z.infer<typeof roomSchema>
 
+export const getRoomImageUrl = (url: string | null | undefined) => {
+  if (url === 'src/assets/sala2-358f3.jpg') return sala2Img
+  return url
+}
+
 export default function Rooms() {
   const { toast } = useToast()
   const { user } = useAuth()
@@ -44,6 +51,9 @@ export default function Rooms() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -97,6 +107,8 @@ export default function Rooms() {
 
   const handleAddRoom = () => {
     setSelectedRoom(null)
+    setSelectedImageFile(null)
+    setImagePreview(null)
     reset({ name: '', capacity: 4, location: '', description: '' })
     setIsModalOpen(true)
   }
@@ -109,7 +121,26 @@ export default function Rooms() {
       location: room.location || '',
       description: room.description || '',
     })
+    setSelectedImageFile(null)
+    setImagePreview(room.image_url || null)
     setIsModalOpen(true)
+  }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        toast({ variant: 'destructive', title: 'Formato de imagem inválido' })
+        return
+      }
+      setSelectedImageFile(file)
+      setImagePreview(URL.createObjectURL(file))
+    }
+  }
+
+  const removeImage = () => {
+    setImagePreview(null)
+    setSelectedImageFile(null)
   }
 
   const handleDeleteRoom = async (id: string) => {
@@ -120,7 +151,15 @@ export default function Rooms() {
     )
       return
 
+    const room = rooms.find((r) => r.id === id)
     try {
+      if (room?.image_url?.includes('supabase.co')) {
+        const urlParts = room.image_url.split('/room-images/')
+        if (urlParts.length === 2) {
+          const filePath = urlParts[1].split('?')[0]
+          await supabase.storage.from('room-images').remove([filePath])
+        }
+      }
       await api.rooms.delete(id)
       toast({ title: 'Sala removida com sucesso' })
       fetchRooms()
@@ -131,11 +170,39 @@ export default function Rooms() {
 
   const onSubmit = async (data: RoomFormData) => {
     try {
+      let imageUrl = imagePreview
+
+      if (selectedImageFile) {
+        const fileExt = selectedImageFile.name.split('.').pop()
+        const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`
+        const { error: uploadError } = await supabase.storage
+          .from('room-images')
+          .upload(fileName, selectedImageFile)
+
+        if (uploadError) throw uploadError
+
+        const { data: publicUrlData } = supabase.storage.from('room-images').getPublicUrl(fileName)
+
+        imageUrl = publicUrlData.publicUrl
+      }
+
+      if (selectedRoom?.image_url && selectedRoom.image_url !== imageUrl) {
+        if (selectedRoom.image_url.includes('supabase.co')) {
+          const urlParts = selectedRoom.image_url.split('/room-images/')
+          if (urlParts.length === 2) {
+            const filePath = urlParts[1].split('?')[0]
+            await supabase.storage.from('room-images').remove([filePath])
+          }
+        }
+      }
+
+      const roomPayload = { ...data, image_url: imageUrl }
+
       if (selectedRoom) {
-        await api.rooms.update(selectedRoom.id, data)
+        await api.rooms.update(selectedRoom.id, roomPayload)
         toast({ title: 'Sala atualizada com sucesso!' })
       } else {
-        await api.rooms.create(data)
+        await api.rooms.create(roomPayload)
         toast({ title: 'Sala adicionada com sucesso!' })
       }
       setIsModalOpen(false)
@@ -166,8 +233,22 @@ export default function Rooms() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {rooms.map((room) => (
-          <Card key={room.id} className="flex flex-col">
-            <CardHeader className="pb-3">
+          <Card key={room.id} className="flex flex-col overflow-hidden">
+            {room.image_url ? (
+              <div className="w-full h-48 bg-slate-100 shrink-0 border-b">
+                <img
+                  src={getRoomImageUrl(room.image_url)}
+                  alt={room.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="w-full h-48 bg-slate-50 shrink-0 flex flex-col items-center justify-center text-slate-400 border-b">
+                <ImageIcon className="w-10 h-10 mb-2 opacity-30" />
+                <span className="text-xs font-medium uppercase tracking-wider">Sem Imagem</span>
+              </div>
+            )}
+            <CardHeader className="pb-3 pt-4">
               <CardTitle className="text-lg">{room.name}</CardTitle>
               <CardDescription className="flex items-center mt-1">
                 <MapPin className="w-3.5 h-3.5 mr-1" />
@@ -184,7 +265,7 @@ export default function Rooms() {
               </p>
             </CardContent>
             {isAdmin && (
-              <CardFooter className="pt-0 flex justify-end gap-2 border-t mt-auto px-6 py-4">
+              <CardFooter className="pt-0 flex justify-end gap-2 border-t mt-auto px-6 py-4 bg-slate-50/50">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -214,11 +295,49 @@ export default function Rooms() {
       </div>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle>{selectedRoom ? 'Editar Sala' : 'Adicionar Nova Sala'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label>Imagem da Sala</Label>
+              <div className="flex items-center gap-4">
+                {imagePreview ? (
+                  <div className="relative w-32 h-24 rounded-md overflow-hidden border shrink-0 bg-slate-100">
+                    <img
+                      src={getRoomImageUrl(imagePreview)}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-32 h-24 rounded-md border border-dashed flex items-center justify-center bg-slate-50 text-slate-400 shrink-0">
+                    <ImageIcon className="w-6 h-6" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <Input
+                    key={selectedImageFile ? selectedImageFile.name : 'empty-file'}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleImageChange}
+                    className="cursor-pointer file:cursor-pointer text-sm h-9"
+                  />
+                  <p className="text-xs text-slate-500 mt-1.5">
+                    Formatos suportados: JPG, PNG, WEBP.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="name">Nome da Sala</Label>
               <Input id="name" placeholder="Ex: Sala de Reuniões 1" {...register('name')} />

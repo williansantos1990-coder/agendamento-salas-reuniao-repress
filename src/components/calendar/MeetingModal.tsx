@@ -3,7 +3,14 @@ import { format, parse, setHours, setMinutes } from 'date-fns'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, Image as ImageIcon } from 'lucide-react'
+import sala2Img from '@/assets/sala2-358f3.jpg'
+
+const getRoomImageUrl = (url: string | null | undefined) => {
+  if (url === 'src/assets/sala2-358f3.jpg') return sala2Img
+  return url
+}
+
 import {
   Dialog,
   DialogContent,
@@ -371,13 +378,32 @@ export function MeetingModal({
               {errors.room_id && (
                 <p className="text-xs text-destructive">{errors.room_id.message as string}</p>
               )}
-              {selectedRoomId && (
-                <div className="mt-2 text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
-                  {selectedRoomDetails?.description ? (
-                    <p className="whitespace-pre-line">{selectedRoomDetails.description}</p>
+              {selectedRoomId && selectedRoomDetails && (
+                <div className="mt-2 flex gap-3 text-sm text-muted-foreground bg-muted/30 border rounded-md overflow-hidden">
+                  {selectedRoomDetails.image_url ? (
+                    <div className="w-24 h-full min-h-[5rem] shrink-0 bg-muted">
+                      <img
+                        src={getRoomImageUrl(selectedRoomDetails.image_url)}
+                        alt={selectedRoomDetails.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                   ) : (
-                    <p className="italic">Nenhuma informação adicional para esta sala.</p>
+                    <div className="w-24 h-full min-h-[5rem] shrink-0 bg-muted flex items-center justify-center">
+                      <ImageIcon className="w-6 h-6 opacity-20" />
+                    </div>
                   )}
+                  <div className="p-3 pl-0 flex-1 flex flex-col justify-center">
+                    {selectedRoomDetails.description ? (
+                      <p className="whitespace-pre-line line-clamp-3">
+                        {selectedRoomDetails.description}
+                      </p>
+                    ) : (
+                      <p className="italic text-muted-foreground/60">
+                        Nenhuma informação adicional para esta sala.
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

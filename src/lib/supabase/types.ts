@@ -400,6 +400,21 @@ export const Constants = {
 //               )
 //           );
 //           RETURN NEW;
+//       ELSIF (TG_OP = 'UPDATE') THEN
+//           INSERT INTO public.audit_logs (user_id, action, meeting_id, details)
+//           VALUES (
+//               NEW.user_id,
+//               CASE WHEN NEW.recurrence_id IS NOT NULL THEN 'UPDATE_MEETING_SERIES' ELSE 'UPDATE_MEETING' END,
+//               NEW.id,
+//               jsonb_build_object(
+//                 'title', NEW.title,
+//                 'room_id', NEW.room_id,
+//                 'start_time', NEW.start_time,
+//                 'end_time', NEW.end_time,
+//                 'participants', NEW.participants
+//               )
+//           );
+//           RETURN NEW;
 //       ELSIF (TG_OP = 'DELETE') THEN
 //           INSERT INTO public.audit_logs (user_id, action, meeting_id, details)
 //           VALUES (
@@ -439,6 +454,7 @@ export const Constants = {
 // Table: meetings
 //   on_meeting_delete_audit: CREATE TRIGGER on_meeting_delete_audit AFTER DELETE ON public.meetings FOR EACH ROW EXECUTE FUNCTION handle_meeting_audit()
 //   on_meeting_insert_audit: CREATE TRIGGER on_meeting_insert_audit AFTER INSERT ON public.meetings FOR EACH ROW EXECUTE FUNCTION handle_meeting_audit()
+//   on_meeting_update_audit: CREATE TRIGGER on_meeting_update_audit AFTER UPDATE ON public.meetings FOR EACH ROW EXECUTE FUNCTION handle_meeting_audit()
 
 // --- INDEXES ---
 // Table: meetings
