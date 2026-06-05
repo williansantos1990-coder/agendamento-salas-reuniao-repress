@@ -40,7 +40,7 @@ export default function Login() {
 
   const onSubmit = async (data: FormData) => {
     setIsLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
     })
@@ -56,6 +56,27 @@ export default function Login() {
       })
       setIsLoading(false)
     } else {
+      if (authData.user) {
+        const user = authData.user
+        supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', user.id)
+          .single()
+          .then(({ data: profile }) => {
+            const fullName = profile?.full_name || user.user_metadata?.full_name || 'Desconhecido'
+            const email = profile?.email || user.email || ''
+
+            const db = supabase as any
+            db.from('access_logs')
+              .insert({
+                user_id: user.id,
+                full_name: fullName,
+                email: email,
+              })
+              .then(() => {})
+          })
+      }
       navigate('/')
     }
   }

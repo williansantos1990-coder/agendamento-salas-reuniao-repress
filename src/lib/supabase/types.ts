@@ -123,6 +123,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          image_url: string | null
           location: string | null
           name: string
         }
@@ -131,6 +132,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           location?: string | null
           name: string
         }
@@ -139,6 +141,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           location?: string | null
           name?: string
         }
@@ -323,6 +326,7 @@ export const Constants = {
 //   location: text (nullable)
 //   description: text (nullable)
 //   created_at: timestamp with time zone (not null, default: now())
+//   image_url: text (nullable)
 
 // --- CONSTRAINTS ---
 // Table: audit_logs
