@@ -3,7 +3,7 @@ import { format, parse, setHours, setMinutes } from 'date-fns'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { RefreshCw, Image as ImageIcon } from 'lucide-react'
+import { RefreshCw, Image as ImageIcon, MapPin } from 'lucide-react'
 import sala2Img from '@/assets/sala2-358f3.jpg'
 
 const getRoomImageUrl = (url: string | null | undefined) => {
@@ -393,7 +393,7 @@ export function MeetingModal({
                       <ImageIcon className="w-6 h-6 opacity-20" />
                     </div>
                   )}
-                  <div className="p-3 pl-0 flex-1 flex flex-col justify-center">
+                  <div className="p-3 pl-0 flex-1 flex flex-col justify-center gap-2">
                     {selectedRoomDetails.description ? (
                       <p className="whitespace-pre-line line-clamp-3">
                         {selectedRoomDetails.description}
@@ -402,6 +402,12 @@ export function MeetingModal({
                       <p className="italic text-muted-foreground/60">
                         Nenhuma informação adicional para esta sala.
                       </p>
+                    )}
+                    {selectedRoomDetails.location && (
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-foreground bg-background/50 p-1.5 rounded border border-border/50 self-start">
+                        <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <span>{selectedRoomDetails.location}</span>
+                      </div>
                     )}
                   </div>
                 </div>

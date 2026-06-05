@@ -9,6 +9,38 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_logs: {
+        Row: {
+          accessed_at: string
+          email: string | null
+          full_name: string | null
+          id: number
+          user_id: string
+        }
+        Insert: {
+          accessed_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: never
+          user_id: string
+        }
+        Update: {
+          accessed_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: never
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'access_logs_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -294,6 +326,12 @@ export const Constants = {
 // --- COLUMN TYPES (actual PostgreSQL types) ---
 // Use this to know the real database type when writing migrations.
 // "string" in TypeScript types above may be uuid, text, varchar, timestamptz, etc.
+// Table: access_logs
+//   id: bigint (not null)
+//   user_id: uuid (not null)
+//   full_name: text (nullable)
+//   email: text (nullable)
+//   accessed_at: timestamp with time zone (not null, default: now())
 // Table: audit_logs
 //   id: uuid (not null, default: gen_random_uuid())
 //   user_id: uuid (nullable)
@@ -329,6 +367,9 @@ export const Constants = {
 //   image_url: text (nullable)
 
 // --- CONSTRAINTS ---
+// Table: access_logs
+//   PRIMARY KEY access_logs_pkey: PRIMARY KEY (id)
+//   FOREIGN KEY access_logs_user_id_fkey: FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
 // Table: audit_logs
 //   PRIMARY KEY audit_logs_pkey: PRIMARY KEY (id)
 //   FOREIGN KEY audit_logs_user_id_fkey: FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL
@@ -344,6 +385,11 @@ export const Constants = {
 //   PRIMARY KEY rooms_pkey: PRIMARY KEY (id)
 
 // --- ROW LEVEL SECURITY POLICIES ---
+// Table: access_logs
+//   Policy "Admins can view all access logs" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))
+//   Policy "Users can insert their own access logs" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: (user_id = auth.uid())
 // Table: audit_logs
 //   Policy "Users can view their own audit logs" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: (auth.uid() = user_id)
