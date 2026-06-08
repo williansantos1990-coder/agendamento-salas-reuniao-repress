@@ -192,46 +192,115 @@ export function MeetingModal({
       if (meeting) {
         if (updateSeries && meeting.recurrence_id) {
           const series = await api.meetings.getSeries(meeting.recurrence_id)
-          const updatedSeries = series.map((m: any) => {
-            const mStartDate = new Date(m.start_time)
-            const mEndDate = new Date(m.end_time)
 
-            mStartDate.setHours(startH, startM, 0, 0)
-            mEndDate.setHours(endH, endM, 0, 0)
+          if (recurrenceConfig) {
+            const generated = generateOccurrences(recurrenceConfig)
+            const occurrences = generated.map((o) => ({
+              startDateTime: o.start,
+              endDateTime: o.end,
+            }))
 
-            if (mEndDate < mStartDate) {
-              mEndDate.setDate(mEndDate.getDate() + 1)
+            if (occurrences.length === 0) {
+              return toast({
+                variant: 'destructive',
+                title: 'Nenhuma data válida gerada pela recorrência.',
+              })
             }
 
-            return {
-              ...m,
+            const futureOccurrences = series.filter(
+              (m) => new Date(m.start_time) >= new Date(meeting.start_time),
+            )
+            const futureIds = futureOccurrences.map((m) => m.id)
+
+            for (const occ of occurrences) {
+              const isAvailable = await api.meetings.checkAvailability(
+                data.room_id,
+                occ.startDateTime,
+                occ.endDateTime,
+                futureIds,
+              )
+              if (!isAvailable) {
+                const unavailableDate = format(occ.startDateTime, 'dd/MM/yyyy HH:mm')
+                return toast({
+                  variant: 'destructive',
+                  title: 'Conflito de horário detectado.',
+                  description: `A sala já está reservada em ${unavailableDate}`,
+                })
+              }
+            }
+
+            const toDeleteIds = futureIds.filter((id) => id !== meeting.id)
+            for (const id of toDeleteIds) {
+              await api.meetings.delete(id)
+            }
+
+            const firstOcc = occurrences[0]
+            await api.meetings.update(meeting.id, {
               title: data.title,
               description: data.description || null,
               room_id: data.room_id,
-              start_time: mStartDate.toISOString(),
-              end_time: mEndDate.toISOString(),
-            }
-          })
+              start_time: firstOcc.startDateTime.toISOString(),
+              end_time: firstOcc.endDateTime.toISOString(),
+            })
 
-          for (const occ of updatedSeries) {
-            const isAvailable = await api.meetings.checkAvailability(
-              occ.room_id,
-              new Date(occ.start_time),
-              new Date(occ.end_time),
-              occ.id,
-            )
-            if (!isAvailable) {
-              const unavailableDate = format(new Date(occ.start_time), 'dd/MM/yyyy HH:mm')
-              return toast({
-                variant: 'destructive',
-                title: 'Conflito de horário detectado.',
-                description: `A sala já está reservada em ${unavailableDate}`,
-              })
+            const remainingOccurrences = occurrences.slice(1)
+            if (remainingOccurrences.length > 0) {
+              const payloads = remainingOccurrences.map((occ) => ({
+                title: data.title,
+                description: data.description || null,
+                room_id: data.room_id,
+                user_id: meeting.user_id,
+                start_time: occ.startDateTime.toISOString(),
+                end_time: occ.endDateTime.toISOString(),
+                recurrence_id: meeting.recurrence_id,
+                participants: meeting.participants || [],
+              }))
+              await api.meetings.createBulk(payloads)
             }
+
+            toast({ title: 'Série atualizada com nova recorrência' })
+          } else {
+            const updatedSeries = series.map((m: any) => {
+              const mStartDate = new Date(m.start_time)
+              const mEndDate = new Date(m.end_time)
+
+              mStartDate.setHours(startH, startM, 0, 0)
+              mEndDate.setHours(endH, endM, 0, 0)
+
+              if (mEndDate < mStartDate) {
+                mEndDate.setDate(mEndDate.getDate() + 1)
+              }
+
+              return {
+                ...m,
+                title: data.title,
+                description: data.description || null,
+                room_id: data.room_id,
+                start_time: mStartDate.toISOString(),
+                end_time: mEndDate.toISOString(),
+              }
+            })
+
+            for (const occ of updatedSeries) {
+              const isAvailable = await api.meetings.checkAvailability(
+                occ.room_id,
+                new Date(occ.start_time),
+                new Date(occ.end_time),
+                occ.id,
+              )
+              if (!isAvailable) {
+                const unavailableDate = format(new Date(occ.start_time), 'dd/MM/yyyy HH:mm')
+                return toast({
+                  variant: 'destructive',
+                  title: 'Conflito de horário detectado.',
+                  description: `A sala já está reservada em ${unavailableDate}`,
+                })
+              }
+            }
+
+            await api.meetings.updateBulk(updatedSeries)
+            toast({ title: 'Série atualizada com sucesso' })
           }
-
-          await api.meetings.updateBulk(updatedSeries)
-          toast({ title: 'Série atualizada com sucesso' })
         } else {
           const currentDate = parse(data.date, 'yyyy-MM-dd', new Date())
           const startDateTime = setMinutes(setHours(currentDate, startH), startM)
@@ -288,10 +357,11 @@ export function MeetingModal({
                 title: data.title,
                 description: data.description || null,
                 room_id: data.room_id,
-                user_id: user!.id,
+                user_id: meeting.user_id || user!.id,
                 start_time: occ.startDateTime.toISOString(),
                 end_time: occ.endDateTime.toISOString(),
                 recurrence_id,
+                participants: meeting.participants || [],
               }))
               await api.meetings.createBulk(payloads)
             }
@@ -493,26 +563,26 @@ export function MeetingModal({
               <Textarea {...register('description')} className="resize-none h-20" />
             </div>
 
-            {(!meeting || !meeting.recurrence_id) && (
-              <div className="flex items-center justify-between py-2 border rounded-md px-3 bg-muted/20">
-                <div className="flex items-center space-x-2 text-sm">
-                  <RefreshCw className="h-4 w-4 text-muted-foreground" />
-                  <span>
-                    {recurrenceConfig
-                      ? 'Esta é uma reunião recorrente'
-                      : 'Repetir este compromisso?'}
-                  </span>
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setShowRecurrence(true)}
-                >
-                  {recurrenceConfig ? 'Editar recorrência' : 'Tornar recorrente'}
-                </Button>
+            <div className="flex items-center justify-between py-2 border rounded-md px-3 bg-muted/20">
+              <div className="flex items-center space-x-2 text-sm">
+                <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                <span>
+                  {recurrenceConfig || (meeting && meeting.recurrence_id)
+                    ? 'Esta é uma reunião recorrente'
+                    : 'Repetir este compromisso?'}
+                </span>
               </div>
-            )}
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowRecurrence(true)}
+              >
+                {recurrenceConfig || (meeting && meeting.recurrence_id)
+                  ? 'Editar recorrência'
+                  : 'Tornar recorrente'}
+              </Button>
+            </div>
 
             <DialogFooter className={meeting ? 'sm:justify-between' : ''}>
               {meeting && (

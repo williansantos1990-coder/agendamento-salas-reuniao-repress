@@ -69,7 +69,12 @@ export const api = {
       if (error) throw error
       return data as Meeting[]
     },
-    async checkAvailability(roomId: string, start: Date, end: Date, excludeMeetingId?: string) {
+    async checkAvailability(
+      roomId: string,
+      start: Date,
+      end: Date,
+      excludeMeetingId?: string | string[],
+    ) {
       let query = supabase
         .from('meetings')
         .select('id')
@@ -78,7 +83,13 @@ export const api = {
         .gt('end_time', start.toISOString())
 
       if (excludeMeetingId) {
-        query = query.neq('id', excludeMeetingId)
+        if (Array.isArray(excludeMeetingId)) {
+          if (excludeMeetingId.length > 0) {
+            query = query.not('id', 'in', `(${excludeMeetingId.join(',')})`)
+          }
+        } else {
+          query = query.neq('id', excludeMeetingId)
+        }
       }
 
       const { data, error } = await query
