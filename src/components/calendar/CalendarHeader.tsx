@@ -64,8 +64,26 @@ export function CalendarHeader({
   }
 
   return (
-    <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-white">
-      <div className="flex items-center gap-4">
+    <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-b border-slate-200 bg-white">
+      <Tabs
+        value={view}
+        onValueChange={(v) => setView(v as CalendarView)}
+        className="w-full md:w-auto order-1 md:order-2"
+      >
+        <TabsList className="h-9 w-full grid grid-cols-3 md:flex md:w-auto">
+          <TabsTrigger value="day" className="text-xs">
+            Dia
+          </TabsTrigger>
+          <TabsTrigger value="week" className="text-xs">
+            Semana
+          </TabsTrigger>
+          <TabsTrigger value="month" className="text-xs">
+            Mês
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      <div className="flex flex-wrap md:flex-nowrap items-center justify-center md:justify-start gap-2 md:gap-4 w-full md:w-auto order-2 md:order-1">
         <div className="flex items-center gap-1">
           <Button
             variant="outline"
@@ -74,7 +92,7 @@ export function CalendarHeader({
           >
             Hoje
           </Button>
-          <div className="flex items-center ml-2 border rounded-md">
+          <div className="flex items-center ml-1 md:ml-2 border rounded-md">
             <Button
               variant="ghost"
               size="icon"
@@ -98,9 +116,10 @@ export function CalendarHeader({
           <PopoverTrigger asChild>
             <Button
               variant="ghost"
-              className="h-9 text-xl font-normal px-2 capitalize hover:bg-slate-100"
+              className="h-9 text-base md:text-xl font-normal px-2 capitalize hover:bg-slate-100"
             >
-              {formatHeaderDate()} <CalendarIcon className="ml-2 h-5 w-5 opacity-50" />
+              <span className="truncate max-w-[200px] md:max-w-none">{formatHeaderDate()}</span>
+              <CalendarIcon className="ml-2 h-5 w-5 opacity-50 shrink-0" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-72 p-4">
@@ -142,20 +161,6 @@ export function CalendarHeader({
           </PopoverContent>
         </Popover>
       </div>
-
-      <Tabs value={view} onValueChange={(v) => setView(v as CalendarView)}>
-        <TabsList className="h-9">
-          <TabsTrigger value="day" className="text-xs">
-            Dia
-          </TabsTrigger>
-          <TabsTrigger value="week" className="text-xs">
-            Semana
-          </TabsTrigger>
-          <TabsTrigger value="month" className="text-xs">
-            Mês
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
     </div>
   )
 }
