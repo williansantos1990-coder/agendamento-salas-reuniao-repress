@@ -30,8 +30,7 @@ Deno.serve(async (req: Request) => {
 
     // Parse payload depending on source (Webhook vs Direct Invocation)
     if (payload.table === 'meetings' && payload.type) {
-      action =
-        payload.type === 'DELETE' ? 'CANCEL' : payload.type === 'UPDATE' ? 'UPDATE' : 'CREATE'
+      action = payload.type === 'DELETE' ? 'CANCEL' : (payload.type === 'UPDATE' ? 'UPDATE' : 'CREATE')
       const record = payload.type === 'DELETE' ? payload.old_record : payload.record
       title = record.title
       start_time = record.start_time
@@ -50,12 +49,7 @@ Deno.serve(async (req: Request) => {
       }
     } else if (payload.table === 'audit_logs' && payload.type === 'INSERT') {
       const record = payload.record
-      action =
-        record.action === 'CANCEL_MEETING'
-          ? 'CANCEL'
-          : record.action === 'UPDATE_MEETING' || record.action === 'UPDATE_MEETING_SERIES'
-            ? 'UPDATE'
-            : 'CREATE'
+      action = record.action === 'CANCEL_MEETING' ? 'CANCEL' : (record.action === 'UPDATE_MEETING' || record.action === 'UPDATE_MEETING_SERIES' ? 'UPDATE' : 'CREATE')
       user_id = record.user_id
       const details = record.details || {}
       title = details.title
@@ -174,7 +168,7 @@ Deno.serve(async (req: Request) => {
     // Combine and deduplicate. We validate email formats so malformed ones won't break the delivery
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     const toList = [requester_email, ...parsedParticipants].filter(Boolean)
-
+    
     // In case of an update, we might want to notify people who were removed from the meeting
     if (action === 'UPDATE' && has_old_record) {
       toList.push(...oldParsedParticipants)
@@ -215,18 +209,12 @@ Deno.serve(async (req: Request) => {
     }
 
     const timeZone = 'America/Sao_Paulo'
-    const formatDate = (dateStr: string) =>
-      dateStr
-        ? new Date(dateStr).toLocaleDateString('pt-BR', { timeZone })
-        : 'Data não especificada'
-    const formatTime = (dateStr: string) =>
-      dateStr
-        ? new Date(dateStr).toLocaleTimeString('pt-BR', {
-            hour: '2-digit',
-            minute: '2-digit',
-            timeZone,
-          })
-        : '--:--'
+    const formatDate = (dateStr: string) => dateStr ? new Date(dateStr).toLocaleDateString('pt-BR', { timeZone }) : 'Data não especificada'
+    const formatTime = (dateStr: string) => dateStr ? new Date(dateStr).toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone,
+    }) : '--:--'
 
     const date = formatDate(start_time)
     const start = formatTime(start_time)
@@ -235,11 +223,11 @@ Deno.serve(async (req: Request) => {
     let changesHtml = ''
     if (action === 'UPDATE' && has_old_record) {
       const changes = []
-
+      
       if (old_title && title !== old_title) {
         changes.push(`<li><strong>Título:</strong> De "${old_title}" para "${title}"</li>`)
       }
-
+      
       const oldDate = formatDate(old_start_time)
       if (old_start_time && date !== oldDate) {
         changes.push(`<li><strong>Data:</strong> De ${oldDate} para ${date}</li>`)
@@ -248,15 +236,11 @@ Deno.serve(async (req: Request) => {
       const oldStart = formatTime(old_start_time)
       const oldEnd = formatTime(old_end_time)
       if ((old_start_time && start !== oldStart) || (old_end_time && end !== oldEnd)) {
-        changes.push(
-          `<li><strong>Horário:</strong> De ${oldStart} às ${oldEnd} para ${start} às ${end}</li>`,
-        )
+        changes.push(`<li><strong>Horário:</strong> De ${oldStart} às ${oldEnd} para ${start} às ${end}</li>`)
       }
 
       if (old_room_id && room_id !== old_room_id) {
-        changes.push(
-          `<li><strong>Sala:</strong> De "${old_room_name || 'Sala não especificada'}" para "${room_name || 'Sala não especificada'}"</li>`,
-        )
+        changes.push(`<li><strong>Sala:</strong> De "${old_room_name || 'Sala não especificada'}" para "${room_name || 'Sala não especificada'}"</li>`)
       }
 
       const p1 = [...parsedParticipants].sort().join(',')
