@@ -22,8 +22,7 @@ Deno.serve(async (req: Request) => {
 
     // Parse payload depending on source (Webhook vs Direct Invocation)
     if (payload.table === 'meetings' && payload.type) {
-      action =
-        payload.type === 'DELETE' ? 'CANCEL' : payload.type === 'UPDATE' ? 'UPDATE' : 'CREATE'
+      action = payload.type === 'DELETE' ? 'CANCEL' : (payload.type === 'UPDATE' ? 'UPDATE' : 'CREATE')
       const record = payload.type === 'DELETE' ? payload.old_record : payload.record
       title = record.title
       start_time = record.start_time
@@ -33,12 +32,7 @@ Deno.serve(async (req: Request) => {
       participants = record.participants || []
     } else if (payload.table === 'audit_logs' && payload.type === 'INSERT') {
       const record = payload.record
-      action =
-        record.action === 'CANCEL_MEETING'
-          ? 'CANCEL'
-          : record.action === 'UPDATE_MEETING' || record.action === 'UPDATE_MEETING_SERIES'
-            ? 'UPDATE'
-            : 'CREATE'
+      action = record.action === 'CANCEL_MEETING' ? 'CANCEL' : (record.action === 'UPDATE_MEETING' || record.action === 'UPDATE_MEETING_SERIES' ? 'UPDATE' : 'CREATE')
       user_id = record.user_id
       const details = record.details || {}
       title = details.title
