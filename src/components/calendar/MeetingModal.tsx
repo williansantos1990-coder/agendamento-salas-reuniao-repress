@@ -240,27 +240,85 @@ export function MeetingModal({
             endDateTime.setDate(endDateTime.getDate() + 1)
           }
 
-          const isAvailable = await api.meetings.checkAvailability(
-            data.room_id,
-            startDateTime,
-            endDateTime,
-            meeting.id,
-          )
-          if (!isAvailable) {
-            return toast({
-              variant: 'destructive',
-              title: 'Conflito de horário detectado.',
-            })
-          }
+          if (recurrenceConfig && !meeting.recurrence_id) {
+            const generated = generateOccurrences(recurrenceConfig)
+            const occurrences = generated.map((o) => ({
+              startDateTime: o.start,
+              endDateTime: o.end,
+            }))
+            if (occurrences.length === 0) {
+              return toast({
+                variant: 'destructive',
+                title: 'Nenhuma data válida gerada pela recorrência.',
+              })
+            }
 
-          await api.meetings.update(meeting.id, {
-            title: data.title,
-            description: data.description || null,
-            room_id: data.room_id,
-            start_time: startDateTime.toISOString(),
-            end_time: endDateTime.toISOString(),
-          })
-          toast({ title: 'Atualizado com sucesso' })
+            for (const occ of occurrences) {
+              const isAvailable = await api.meetings.checkAvailability(
+                data.room_id,
+                occ.startDateTime,
+                occ.endDateTime,
+                meeting.id,
+              )
+              if (!isAvailable) {
+                const unavailableDate = format(occ.startDateTime, 'dd/MM/yyyy HH:mm')
+                return toast({
+                  variant: 'destructive',
+                  title: 'Conflito de horário detectado.',
+                  description: `A sala já está reservada em ${unavailableDate}`,
+                })
+              }
+            }
+
+            const recurrence_id = crypto.randomUUID()
+            const firstOcc = occurrences[0]
+
+            await api.meetings.update(meeting.id, {
+              title: data.title,
+              description: data.description || null,
+              room_id: data.room_id,
+              start_time: firstOcc.startDateTime.toISOString(),
+              end_time: firstOcc.endDateTime.toISOString(),
+              recurrence_id,
+            })
+
+            const remainingOccurrences = occurrences.slice(1)
+            if (remainingOccurrences.length > 0) {
+              const payloads = remainingOccurrences.map((occ) => ({
+                title: data.title,
+                description: data.description || null,
+                room_id: data.room_id,
+                user_id: user!.id,
+                start_time: occ.startDateTime.toISOString(),
+                end_time: occ.endDateTime.toISOString(),
+                recurrence_id,
+              }))
+              await api.meetings.createBulk(payloads)
+            }
+            toast({ title: 'Reserva convertida em série com sucesso' })
+          } else {
+            const isAvailable = await api.meetings.checkAvailability(
+              data.room_id,
+              startDateTime,
+              endDateTime,
+              meeting.id,
+            )
+            if (!isAvailable) {
+              return toast({
+                variant: 'destructive',
+                title: 'Conflito de horário detectado.',
+              })
+            }
+
+            await api.meetings.update(meeting.id, {
+              title: data.title,
+              description: data.description || null,
+              room_id: data.room_id,
+              start_time: startDateTime.toISOString(),
+              end_time: endDateTime.toISOString(),
+            })
+            toast({ title: 'Atualizado com sucesso' })
+          }
         }
       } else {
         let occurrences: { startDateTime: Date; endDateTime: Date }[] = []
@@ -435,7 +493,7 @@ export function MeetingModal({
               <Textarea {...register('description')} className="resize-none h-20" />
             </div>
 
-            {!meeting && (
+            {(!meeting || !meeting.recurrence_id) && (
               <div className="flex items-center justify-between py-2 border rounded-md px-3 bg-muted/20">
                 <div className="flex items-center space-x-2 text-sm">
                   <RefreshCw className="h-4 w-4 text-muted-foreground" />
