@@ -20,9 +20,18 @@ Deno.serve(async (req: Request) => {
     let requester_email = ''
     let participants: string[] = []
 
+    let old_title = ''
+    let old_start_time = ''
+    let old_end_time = ''
+    let old_room_id = ''
+    let old_room_name = ''
+    let old_participants: string[] = []
+    let has_old_record = false
+
     // Parse payload depending on source (Webhook vs Direct Invocation)
     if (payload.table === 'meetings' && payload.type) {
-      action = payload.type === 'DELETE' ? 'CANCEL' : (payload.type === 'UPDATE' ? 'UPDATE' : 'CREATE')
+      action =
+        payload.type === 'DELETE' ? 'CANCEL' : payload.type === 'UPDATE' ? 'UPDATE' : 'CREATE'
       const record = payload.type === 'DELETE' ? payload.old_record : payload.record
       title = record.title
       start_time = record.start_time
@@ -30,9 +39,23 @@ Deno.serve(async (req: Request) => {
       room_id = record.room_id
       user_id = record.user_id
       participants = record.participants || []
+
+      if (action === 'UPDATE' && payload.old_record) {
+        has_old_record = true
+        old_title = payload.old_record.title
+        old_start_time = payload.old_record.start_time
+        old_end_time = payload.old_record.end_time
+        old_room_id = payload.old_record.room_id
+        old_participants = payload.old_record.participants || []
+      }
     } else if (payload.table === 'audit_logs' && payload.type === 'INSERT') {
       const record = payload.record
-      action = record.action === 'CANCEL_MEETING' ? 'CANCEL' : (record.action === 'UPDATE_MEETING' || record.action === 'UPDATE_MEETING_SERIES' ? 'UPDATE' : 'CREATE')
+      action =
+        record.action === 'CANCEL_MEETING'
+          ? 'CANCEL'
+          : record.action === 'UPDATE_MEETING' || record.action === 'UPDATE_MEETING_SERIES'
+            ? 'UPDATE'
+            : 'CREATE'
       user_id = record.user_id
       const details = record.details || {}
       title = details.title
@@ -50,6 +73,16 @@ Deno.serve(async (req: Request) => {
       user_id = payload.meeting.user_id
       requester_email = payload.requester_email
       participants = payload.participants || []
+
+      if (action === 'UPDATE' && payload.old_meeting) {
+        has_old_record = true
+        old_title = payload.old_meeting.title
+        old_start_time = payload.old_meeting.start_time
+        old_end_time = payload.old_meeting.end_time
+        old_room_id = payload.old_meeting.room_id
+        old_room_name = payload.old_meeting.room_name
+        old_participants = payload.old_meeting.participants || []
+      }
     } else {
       throw new Error('Invalid payload format')
     }
@@ -80,7 +113,7 @@ Deno.serve(async (req: Request) => {
 
       if (profileData) {
         if (profileData.full_name) requester_name = profileData.full_name
-        if (profileData.email) requester_email = profileData.email
+        if (profileData.email && !requester_email) requester_email = profileData.email
       } else {
         console.warn('Could not fetch user profile for user_id:', user_id, profileError)
       }
@@ -95,6 +128,24 @@ Deno.serve(async (req: Request) => {
         .single()
       if (roomData?.name) {
         room_name = roomData.name
+      }
+    }
+
+    // Retrieve the old room name if applicable
+    if (action === 'UPDATE' && has_old_record) {
+      if (!old_room_name && old_room_id) {
+        if (old_room_id === room_id) {
+          old_room_name = room_name
+        } else {
+          const { data: oldRoomData } = await supabase
+            .from('rooms')
+            .select('name')
+            .eq('id', old_room_id)
+            .single()
+          if (oldRoomData?.name) {
+            old_room_name = oldRoomData.name
+          }
+        }
       }
     }
 
@@ -118,10 +169,17 @@ Deno.serve(async (req: Request) => {
     }
 
     const parsedParticipants = parseParticipants(participants)
+    const oldParsedParticipants = parseParticipants(old_participants)
 
     // Combine and deduplicate. We validate email formats so malformed ones won't break the delivery
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     const toList = [requester_email, ...parsedParticipants].filter(Boolean)
+
+    // In case of an update, we might want to notify people who were removed from the meeting
+    if (action === 'UPDATE' && has_old_record) {
+      toList.push(...oldParsedParticipants)
+    }
+
     const uniqueTo = [...new Set(toList)].filter((email: string) => emailRegex.test(email))
 
     if (uniqueTo.length === 0) {
@@ -157,17 +215,67 @@ Deno.serve(async (req: Request) => {
     }
 
     const timeZone = 'America/Sao_Paulo'
-    const date = start_time ? new Date(start_time).toLocaleDateString('pt-BR', { timeZone }) : 'Data não especificada'
-    const start = start_time ? new Date(start_time).toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone,
-    }) : '--:--'
-    const end = end_time ? new Date(end_time).toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone,
-    }) : '--:--'
+    const formatDate = (dateStr: string) =>
+      dateStr
+        ? new Date(dateStr).toLocaleDateString('pt-BR', { timeZone })
+        : 'Data não especificada'
+    const formatTime = (dateStr: string) =>
+      dateStr
+        ? new Date(dateStr).toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone,
+          })
+        : '--:--'
+
+    const date = formatDate(start_time)
+    const start = formatTime(start_time)
+    const end = formatTime(end_time)
+
+    let changesHtml = ''
+    if (action === 'UPDATE' && has_old_record) {
+      const changes = []
+
+      if (old_title && title !== old_title) {
+        changes.push(`<li><strong>Título:</strong> De "${old_title}" para "${title}"</li>`)
+      }
+
+      const oldDate = formatDate(old_start_time)
+      if (old_start_time && date !== oldDate) {
+        changes.push(`<li><strong>Data:</strong> De ${oldDate} para ${date}</li>`)
+      }
+
+      const oldStart = formatTime(old_start_time)
+      const oldEnd = formatTime(old_end_time)
+      if ((old_start_time && start !== oldStart) || (old_end_time && end !== oldEnd)) {
+        changes.push(
+          `<li><strong>Horário:</strong> De ${oldStart} às ${oldEnd} para ${start} às ${end}</li>`,
+        )
+      }
+
+      if (old_room_id && room_id !== old_room_id) {
+        changes.push(
+          `<li><strong>Sala:</strong> De "${old_room_name || 'Sala não especificada'}" para "${room_name || 'Sala não especificada'}"</li>`,
+        )
+      }
+
+      const p1 = [...parsedParticipants].sort().join(',')
+      const p2 = [...oldParsedParticipants].sort().join(',')
+      if (p1 !== p2) {
+        changes.push(`<li><strong>Participantes:</strong> A lista de convidados foi alterada</li>`)
+      }
+
+      if (changes.length > 0) {
+        changesHtml = `
+          <div style="margin-top: 15px; background: #fefce8; padding: 15px; border: 1px solid #fef08a; border-radius: 6px;">
+            <p style="margin-top: 0; font-weight: bold; color: #854d0e;">Alterações realizadas:</p>
+            <ul style="margin-bottom: 0; color: #a16207;">
+              ${changes.join('\n')}
+            </ul>
+          </div>
+        `
+      }
+    }
 
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
@@ -181,7 +289,8 @@ Deno.serve(async (req: Request) => {
           <p><strong>Horário:</strong> ${start} às ${end}</p>
           <p><strong>Sala:</strong> ${room_name || 'Sala não especificada'}</p>
         </div>
-        ${action === 'UPDATE' ? '<p style="color: #666; margin-top: 15px;">Os detalhes acima refletem as novas informações da sua reserva.</p>' : ''}
+        ${changesHtml}
+        ${action === 'UPDATE' && !changesHtml ? '<p style="color: #666; margin-top: 15px;">A reserva foi atualizada. Não houve mudanças nos detalhes principais.</p>' : ''}
         ${action === 'CANCEL' ? '<p style="color: #666; margin-top: 15px;">A reunião especificada foi removida do calendário.</p>' : ''}
         <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
         <p style="color: #64748b; font-size: 14px;">
