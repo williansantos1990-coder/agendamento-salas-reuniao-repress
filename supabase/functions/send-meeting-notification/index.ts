@@ -22,7 +22,8 @@ Deno.serve(async (req: Request) => {
 
     // Parse payload depending on source (Webhook vs Direct Invocation)
     if (payload.table === 'meetings' && payload.type) {
-      action = payload.type === 'DELETE' ? 'CANCEL' : 'CREATE'
+      action =
+        payload.type === 'DELETE' ? 'CANCEL' : payload.type === 'UPDATE' ? 'UPDATE' : 'CREATE'
       const record = payload.type === 'DELETE' ? payload.old_record : payload.record
       title = record.title
       start_time = record.start_time
@@ -32,7 +33,12 @@ Deno.serve(async (req: Request) => {
       participants = record.participants || []
     } else if (payload.table === 'audit_logs' && payload.type === 'INSERT') {
       const record = payload.record
-      action = record.action === 'CANCEL_MEETING' ? 'CANCEL' : 'CREATE'
+      action =
+        record.action === 'CANCEL_MEETING'
+          ? 'CANCEL'
+          : record.action === 'UPDATE_MEETING' || record.action === 'UPDATE_MEETING_SERIES'
+            ? 'UPDATE'
+            : 'CREATE'
       user_id = record.user_id
       const details = record.details || {}
       title = details.title
@@ -74,12 +80,13 @@ Deno.serve(async (req: Request) => {
       // Fetch from profiles to resolve full_name context if needed
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, email')
         .eq('id', user_id)
         .single()
 
-      if (profileData?.full_name) {
-        requester_name = profileData.full_name
+      if (profileData) {
+        if (profileData.full_name) requester_name = profileData.full_name
+        if (profileData.email) requester_email = profileData.email
       } else {
         console.warn('Could not fetch user profile for user_id:', user_id, profileError)
       }
@@ -137,10 +144,23 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    const subject =
-      action === 'CREATE'
-        ? `Confirmação de Agendamento: ${title}`
-        : `Cancelamento de Agendamento: ${title}`
+    let subject = ''
+    let titleText = ''
+    let titleColor = ''
+
+    if (action === 'CREATE') {
+      subject = `Confirmação de Reserva: ${title}`
+      titleText = 'Reunião Confirmada'
+      titleColor = '#0f172a'
+    } else if (action === 'UPDATE') {
+      subject = `Alteração de Reserva: ${title}`
+      titleText = 'Reunião Alterada'
+      titleColor = '#eab308'
+    } else {
+      subject = `Cancelamento de Reserva: ${title}`
+      titleText = 'Reunião Cancelada'
+      titleColor = '#ef4444'
+    }
 
     const date = new Date(start_time).toLocaleDateString('pt-BR')
     const start = new Date(start_time).toLocaleTimeString('pt-BR', {
@@ -154,8 +174,8 @@ Deno.serve(async (req: Request) => {
 
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
-        <h2 style="color: ${action === 'CREATE' ? '#0f172a' : '#ef4444'};">
-          ${action === 'CREATE' ? 'Reunião Confirmada' : 'Reunião Cancelada'}
+        <h2 style="color: ${titleColor};">
+          ${titleText}
         </h2>
         <div style="margin-top: 20px;">
           <p><strong>Título:</strong> ${title}</p>
@@ -164,6 +184,8 @@ Deno.serve(async (req: Request) => {
           <p><strong>Horário:</strong> ${start} às ${end}</p>
           <p><strong>Sala:</strong> ${room_name || 'Sala não especificada'}</p>
         </div>
+        ${action === 'UPDATE' ? '<p style="color: #666; margin-top: 15px;">Os detalhes acima refletem as novas informações da sua reserva.</p>' : ''}
+        ${action === 'CANCEL' ? '<p style="color: #666; margin-top: 15px;">A reunião especificada foi removida do calendário.</p>' : ''}
         <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
         <p style="color: #64748b; font-size: 14px;">
           Este é um email automático do sistema de Agendamento de Salas.
@@ -178,7 +200,7 @@ Deno.serve(async (req: Request) => {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: 'Agendamento <onboarding@resend.dev>',
+        from: 'Agendamento de Salas <reservas@ti.repress.com.br>',
         to: uniqueTo,
         subject,
         html,
