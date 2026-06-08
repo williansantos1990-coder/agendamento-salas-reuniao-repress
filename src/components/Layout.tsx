@@ -99,7 +99,9 @@ export default function Layout() {
                 <SidebarMenuButton asChild isActive={location.pathname === '/rooms'}>
                   <Link to="/rooms">
                     <MapPin />
-                    <span>Gerenciar Salas</span>
+                    <span>
+                      {profile?.role === 'admin' ? 'Gerenciar Salas' : 'Visualizar Salas'}
+                    </span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -160,7 +162,9 @@ export default function Layout() {
               {location.pathname !== '/' && (
                 <h2 className="text-xl font-medium text-slate-800">
                   {location.pathname === '/rooms'
-                    ? 'Gerenciar Salas'
+                    ? profile?.role === 'admin'
+                      ? 'Gerenciar Salas'
+                      : 'Visualizar Salas'
                     : location.pathname === '/users'
                       ? 'Gerenciar Usuários'
                       : 'Meu Perfil'}
